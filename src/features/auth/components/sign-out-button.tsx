@@ -12,7 +12,7 @@ export async function SignOutButton() {
     <form action={signOut}>
       <Button type="submit" variant="ghost">
         <LogOutIcon data-icon="inline-start" aria-hidden />
-        {t("signOut")}
+        <span className="sr-only sm:not-sr-only">{t("signOut")}</span>
       </Button>
     </form>
   );

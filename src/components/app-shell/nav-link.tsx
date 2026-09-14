@@ -3,24 +3,40 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HOME_PATH } from "@/lib/auth/constants";
 import { cn } from "@/lib/utils";
 
-export function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+type NavLinkProps = {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+};
+
+export function NavLink({ href, icon, label }: NavLinkProps) {
   const pathname = usePathname();
   const isActive =
     href === HOME_PATH ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <Link
-      href={href}
-      aria-current={isActive ? "page" : undefined}
-      className={cn(
-        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-sidebar-foreground/75 transition-colors outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50 [&_svg]:size-4 [&_svg]:shrink-0",
-        isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
-      )}
-    >
-      {children}
-    </Link>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={href}
+          aria-current={isActive ? "page" : undefined}
+          className={cn(
+            "flex items-center justify-center gap-2.5 rounded-lg p-2.5 text-sm font-medium text-sidebar-foreground/75 transition-colors outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50 xl:justify-start xl:py-2 [&_svg]:size-4 [&_svg]:shrink-0",
+            isActive && "bg-sidebar-accent text-sidebar-accent-foreground",
+          )}
+        >
+          {icon}
+          <span className="sr-only xl:not-sr-only">{label}</span>
+        </Link>
+      </TooltipTrigger>
+      {/* On wide screens the label is already shown next to the icon. */}
+      <TooltipContent side="right" className="xl:hidden">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }

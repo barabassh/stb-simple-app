@@ -11,10 +11,10 @@ export async function AppHeader({ user }: { user: SessionUser }) {
   const t = await getTranslations();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
       <Link href={HOME_PATH} className="flex shrink-0 items-center gap-2 font-semibold">
         <HardHatIcon className="size-5" aria-hidden />
-        {t("app.name")}
+        <span className="sr-only sm:not-sr-only">{t("app.name")}</span>
       </Link>
 
       <div className="ml-auto flex min-w-0 items-center gap-3">
