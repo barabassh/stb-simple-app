@@ -26,7 +26,8 @@
    В PowerShell: `Copy-Item .env.example .env`.
 
    Задайте `POSTGRES_PASSWORD` и подставьте **тот же пароль** в `DATABASE_URL`.
-   `SEED_ADMIN_PASSWORD` понадобится, когда появится сид (шаг 1).
+   Задайте `SEED_ADMIN_PASSWORD` — начальный пароль учётной записи `admin`
+   (не короче 10 символов, буквы и цифры); без него сид не запустится.
 
 2. Поднимите базу данных:
 
@@ -43,16 +44,22 @@
    npm install
    ```
 
-4. Синхронизируйте схему с базой:
+4. Примените миграции:
 
    ```bash
-   npx prisma db push
+   npx prisma migrate dev
    ```
 
-   Пока моделей нет, команда только проверяет подключение. Когда появятся
-   миграции (шаг 1), вместо неё используется `npx prisma migrate dev`.
+5. Создайте первого администратора:
 
-5. Запустите приложение:
+   ```bash
+   npm run db:seed
+   ```
+
+   Логин `admin`, пароль — из `SEED_ADMIN_PASSWORD`, при первом входе его
+   потребуется сменить. Повторный запуск ничего не меняет, если `admin` уже есть.
+
+6. Запустите приложение:
 
    ```bash
    npm run dev
@@ -71,6 +78,9 @@
 | `npm test`                                | модульные тесты (Vitest), `tests/unit`     |
 | `npm run test:e2e`                        | сквозные тесты (Playwright), `tests/e2e`   |
 | `npm run format` / `npm run format:check` | форматирование Prettier                    |
+| `npm run db:seed`                         | создать администратора `admin`             |
+| `npm run db:studio`                       | Prisma Studio — просмотр данных в браузере |
+| `npx prisma migrate dev --name <имя>`     | создать и применить миграцию схемы         |
 
 Перед сдачей задачи должны проходить `npm run lint`, `npm run typecheck` и `npm test`.
 
@@ -96,13 +106,17 @@ npx playwright install chromium
 
 ```
 ├── docker-compose.yml     # PostgreSQL 16
-├── prisma/schema.prisma   # схема БД
-├── prisma.config.ts       # конфигурация Prisma CLI (читает .env)
+├── prisma/
+│   ├── schema.prisma      # схема БД (описание — docs/СХЕМА-БД.md)
+│   ├── migrations/        # миграции, применённые не редактируются
+│   └── seed.ts            # первый администратор
+├── prisma.config.ts       # конфигурация Prisma CLI (читает .env, команда сида)
 ├── messages/ru.json       # все тексты интерфейса
 ├── src/
 │   ├── app/               # маршруты Next.js (App Router)
 │   ├── components/ui/     # компоненты shadcn/ui
 │   ├── i18n/request.ts    # next-intl: локаль ru без префикса в URL
+│   ├── lib/auth/          # хэширование паролей (Argon2id)
 │   ├── lib/db.ts          # клиент Prisma
 │   ├── lib/format.ts      # даты, время и числа (Europe/Kyiv)
 │   └── generated/prisma/  # сгенерированный клиент Prisma, не в git

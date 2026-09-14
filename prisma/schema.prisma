@@ -1,4 +1,4 @@
-// Models are described in docs/СХЕМА-БД.md and added from step 1 on.
+// Target schema and the reasoning behind it: docs/СХЕМА-БД.md.
 
 generator client {
   provider = "prisma-client"
@@ -7,4 +7,108 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  CONTRACTOR
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  ROLE_CHANGE
+  PASSWORD_CHANGE
+  STATUS_CHANGE
+  SESSION_REVOKE
+  EXPORT
+  IMPORT
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  // Stored lowercased: the unique index is case-sensitive in PostgreSQL.
+  login              String    @unique
+  fullName           String
+  position           String?
+  email              String?   @unique
+  phone              String?
+  comment            String?
+
+  passwordHash       String
+  role               Role      @default(EMPLOYEE)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+
+  lastLoginAt        DateTime?
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  createdById        String?
+  updatedById        String?
+  deletedAt          DateTime?
+
+  sessions           Session[]
+  auditLogs          AuditLog[] @relation("AuditActor")
+
+  createdBy          User?     @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers       User[]    @relation("UserCreatedBy")
+  updatedBy          User?     @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedUsers       User[]    @relation("UserUpdatedBy")
+
+  @@index([role])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@index([fullName])
+}
+
+model Session {
+  id           String    @id @default(cuid())
+  userId       String
+  // SHA-256 of the token; a leaked dump must not allow session hijacking.
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  lastActiveAt DateTime  @default(now())
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  at         DateTime    @default(now())
+
+  actorId    String?
+  // Duplicated on purpose: the log stays readable after actorId is nulled.
+  actorLogin String
+  action     AuditAction
+  // Model name ("User", "Session", ...) so later entities need no table change.
+  entity     String
+  entityId   String?
+  summary    String
+  // [{ field, before, after }]
+  changes    Json?
+  ip         String?
+  userAgent  String?
+
+  actor      User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([at])
+  @@index([entity, entityId])
+  @@index([actorId, at])
+  @@index([action])
 }
