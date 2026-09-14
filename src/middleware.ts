@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { LOGIN_PATH, SESSION_COOKIE_NAME, sessionCookieOptions } from "@/lib/auth/constants";
+import {
+  CLEAR_SESSION_PATH,
+  LOGIN_PATH,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "@/lib/auth/constants";
 
 const PUBLIC_PATHS = new Set([LOGIN_PATH]);
 
@@ -17,7 +22,8 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
   // Server Components cannot set cookies, so the sliding cookie lifetime is renewed here;
   // expiry of the session record in the database remains the authority.
-  if (request.method === "GET") {
+  // Not where the cookie is being deleted: the renewal would reach the browser in the same response.
+  if (request.method === "GET" && request.nextUrl.pathname !== CLEAR_SESSION_PATH) {
     response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions);
   }
   return response;

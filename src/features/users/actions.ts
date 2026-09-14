@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
-import { requireUser } from "@/lib/auth/current-user";
+import { requireActionUser } from "@/lib/auth/current-user";
 import { hashPassword } from "@/lib/auth/password";
 import { invalidateAllUserSessions, invalidateSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -91,7 +91,7 @@ async function uniqueViolation(
 }
 
 export async function createUser(input: unknown): Promise<ActionResult<{ id: string }>> {
-  const actor = await requireUser();
+  const actor = await requireActionUser();
 
   const parsed = createUserSchema.safeParse(input);
   if (!parsed.success) return validationFailure(parsed.error);
@@ -120,7 +120,7 @@ export async function createUser(input: unknown): Promise<ActionResult<{ id: str
 }
 
 export async function updateUser(id: string, input: unknown): Promise<ActionResult> {
-  const actor = await requireUser();
+  const actor = await requireActionUser();
 
   if (!userIdSchema.safeParse(id).success) return notFound;
   const parsed = updateUserSchema.safeParse(input);
@@ -155,7 +155,7 @@ export async function updateUser(id: string, input: unknown): Promise<ActionResu
 }
 
 export async function resetPassword(id: string, input: unknown): Promise<ActionResult> {
-  const actor = await requireUser();
+  const actor = await requireActionUser();
 
   if (!userIdSchema.safeParse(id).success) return notFound;
   const target = await db.user.findUnique({ where: { id }, select: { login: true } });
@@ -177,7 +177,7 @@ export async function resetPassword(id: string, input: unknown): Promise<ActionR
 
 /** Deactivates (`isActive: false`) or activates a user; deactivation ends every session. */
 export async function toggleStatus(id: string, isActive: boolean): Promise<ActionResult> {
-  const actor = await requireUser();
+  const actor = await requireActionUser();
 
   if (!userIdSchema.safeParse(id).success) return notFound;
   if (!z.boolean().safeParse(isActive).success) return invalidRequest;
@@ -201,7 +201,7 @@ export async function toggleStatus(id: string, isActive: boolean): Promise<Actio
 }
 
 export async function revokeUserSession(userId: string, sessionId: string): Promise<ActionResult> {
-  await requireUser();
+  await requireActionUser();
 
   if (!userIdSchema.safeParse(userId).success || !z.cuid().safeParse(sessionId).success) {
     return notFound;
@@ -213,7 +213,7 @@ export async function revokeUserSession(userId: string, sessionId: string): Prom
 }
 
 export async function revokeAllUserSessions(userId: string): Promise<ActionResult> {
-  await requireUser();
+  await requireActionUser();
 
   if (!userIdSchema.safeParse(userId).success) return notFound;
 
