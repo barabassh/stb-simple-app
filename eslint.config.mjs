@@ -24,6 +24,8 @@ const eslintConfig = [
       "playwright-report/**",
       "src/generated/**",
       "next-env.d.ts",
+      // Worktrees of background Claude sessions live here with their own .next build output.
+      ".claude/**",
     ],
   },
 ];
