@@ -47,13 +47,12 @@ export async function signIn(input: unknown): Promise<ActionFailure> {
       id: true,
       passwordHash: true,
       isActive: true,
-      deletedAt: true,
       lockedUntil: true,
       updatedAt: true,
     },
   });
 
-  if (!user || !user.isActive || user.deletedAt) {
+  if (!user || !user.isActive) {
     await verifyAgainstDummyHash(password);
     return invalidCredentials;
   }

@@ -9,7 +9,6 @@ export type Permission =
   | "users.changeRole"
   | "users.resetPassword"
   | "users.changeStatus"
-  | "users.delete"
   | "users.sessions.read"
   | "users.sessions.revoke"
   | "users.export"

@@ -6,8 +6,7 @@ import { toast } from "sonner";
 
 import type { ActionResult } from "@/lib/action-result";
 
-type RunOptions<TData extends object> = {
-  onSuccess?: (result: { ok: true } & TData) => void;
+type RunOptions = {
   /** Called after success and failure alike, e.g. to close a confirmation dialog. */
   onSettled?: () => void;
 };
@@ -17,16 +16,15 @@ export function useRunAction() {
   const t = useTranslations();
   const [isPending, startTransition] = useTransition();
 
-  function run<TData extends object>(
-    action: () => Promise<ActionResult<TData>>,
+  function run(
+    action: () => Promise<ActionResult>,
     successMessage: string,
-    { onSuccess, onSettled }: RunOptions<TData> = {},
+    { onSettled }: RunOptions = {},
   ) {
     startTransition(async () => {
       const result = await action();
       if (result.ok) {
         toast.success(t(successMessage));
-        onSuccess?.(result);
       } else {
         toast.error(t(result.error ?? "users.errors.invalidRequest", result.errorValues));
       }

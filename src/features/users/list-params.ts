@@ -17,8 +17,11 @@ export const USERS_SEARCH_PARAMS = {
 
 export const USER_ROLES = Object.values(Role);
 
-export const USER_STATUS_FILTERS = ["all", "active", "blocked"] as const;
+export const USER_STATUS_FILTERS = ["active", "inactive", "all"] as const;
 export type UserStatusFilter = (typeof USER_STATUS_FILTERS)[number];
+
+/** Deactivated accounts are never deleted and pile up over the years, so they are hidden by default. */
+export const DEFAULT_USER_STATUS: UserStatusFilter = "active";
 
 export const USER_SORT_COLUMNS = [
   "login",
@@ -45,7 +48,7 @@ export function parseUsersListParams(searchParams: SearchParamsInput): UsersList
   return {
     query: readParam(searchParams, USERS_SEARCH_PARAMS.query)?.trim() ?? "",
     roles: USER_ROLES.filter((role) => roles.has(role)),
-    status: USER_STATUS_FILTERS.find((value) => value === status) ?? "all",
+    status: USER_STATUS_FILTERS.find((value) => value === status) ?? DEFAULT_USER_STATUS,
     table: parseTableState(searchParams, {
       sortableColumns: USER_SORT_COLUMNS,
       defaultSort: { column: "fullName", order: "asc" },
@@ -54,5 +57,5 @@ export function parseUsersListParams(searchParams: SearchParamsInput): UsersList
 }
 
 export function hasUserFilters({ query, roles, status }: UsersListParams): boolean {
-  return query !== "" || roles.length > 0 || status !== "all";
+  return query !== "" || roles.length > 0 || status !== DEFAULT_USER_STATUS;
 }

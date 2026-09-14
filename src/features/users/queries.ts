@@ -4,9 +4,6 @@ import { db } from "@/lib/db";
 
 import type { UserSortColumn, UsersListParams } from "./list-params";
 
-/** Soft-deleted accounts stay in the table for the audit log and are excluded from every read. */
-export const notDeleted = { deletedAt: null } as const satisfies Prisma.UserWhereInput;
-
 const listItemSelect = {
   id: true,
   login: true,
@@ -38,7 +35,6 @@ export async function listUsers({
   table,
 }: UsersListParams): Promise<{ rows: UserListItem[]; rowCount: number }> {
   const where: Prisma.UserWhereInput = {
-    ...notDeleted,
     ...(roles.length > 0 ? { role: { in: roles } } : {}),
     ...(status !== "all" ? { isActive: status === "active" } : {}),
     ...(query
@@ -71,8 +67,8 @@ export async function listUsers({
 }
 
 export async function getUser(id: string) {
-  return db.user.findFirst({
-    where: { id, ...notDeleted },
+  return db.user.findUnique({
+    where: { id },
     select: {
       id: true,
       login: true,
@@ -93,7 +89,7 @@ export type UserDetails = NonNullable<Awaited<ReturnType<typeof getUser>>>;
 
 export async function listActiveUserSessions(userId: string) {
   return db.session.findMany({
-    where: { userId, revokedAt: null, expiresAt: { gt: new Date() }, user: notDeleted },
+    where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
     select: { id: true, createdAt: true, lastActiveAt: true, ip: true, userAgent: true },
     orderBy: { lastActiveAt: "desc" },
   });

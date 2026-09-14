@@ -64,7 +64,6 @@ export async function validateSession(token: string): Promise<ValidatedSession |
           fullName: true,
           role: true,
           isActive: true,
-          deletedAt: true,
         },
       },
     },
@@ -73,9 +72,9 @@ export async function validateSession(token: string): Promise<ValidatedSession |
   const now = Date.now();
   if (!record || record.revokedAt || record.expiresAt.getTime() <= now) return null;
 
-  const { isActive, deletedAt, ...user } = record.user;
-  // Blocking and deletion revoke sessions as well; this also covers a revoke that raced with them.
-  if (!isActive || deletedAt) return null;
+  const { isActive, ...user } = record.user;
+  // Deactivation revokes sessions as well; this also covers a revoke that raced with it.
+  if (!isActive) return null;
 
   let { expiresAt } = record;
   if (now - record.lastActiveAt.getTime() > SESSION_EXTEND_AFTER_MS) {

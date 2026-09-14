@@ -4,10 +4,9 @@ import {
   EllipsisIcon,
   EyeIcon,
   KeyRoundIcon,
-  LockIcon,
-  LockOpenIcon,
   PencilIcon,
-  Trash2Icon,
+  UserCheckIcon,
+  UserXIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -58,29 +57,24 @@ export function UserRowActions({ user }: { user: UserActionTarget }) {
               {t("actions.edit")}
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {user.isActive ? (
-            <DropdownMenuItem onSelect={() => setDialog("block")}>
-              <LockIcon aria-hidden />
-              {t("actions.block")}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onSelect={() => run(() => toggleStatus(user.id, true), "users.toasts.unblocked")}
-            >
-              <LockOpenIcon aria-hidden />
-              {t("actions.unblock")}
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem onSelect={() => setDialog("resetPassword")}>
             <KeyRoundIcon aria-hidden />
             {t("actions.resetPassword")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
-            <Trash2Icon aria-hidden />
-            {t("actions.delete")}
-          </DropdownMenuItem>
+          {user.isActive ? (
+            <DropdownMenuItem variant="destructive" onSelect={() => setDialog("deactivate")}>
+              <UserXIcon aria-hidden />
+              {t("actions.deactivate")}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onSelect={() => run(() => toggleStatus(user.id, true), "users.toasts.activated")}
+            >
+              <UserCheckIcon aria-hidden />
+              {t("actions.activate")}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -25,6 +25,7 @@ import {
 import type { Role } from "@/generated/prisma/enums";
 
 import {
+  DEFAULT_USER_STATUS,
   USER_ROLES,
   USER_STATUS_FILTERS,
   USERS_SEARCH_PARAMS,
@@ -97,10 +98,10 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
   }
 
   function changeStatus(value: string) {
-    const next = USER_STATUS_FILTERS.find((item) => item === value) ?? "all";
+    const next = USER_STATUS_FILTERS.find((item) => item === value) ?? DEFAULT_USER_STATUS;
     startTransition(() => {
       setOptimisticStatus(next);
-      navigate({ [USERS_SEARCH_PARAMS.status]: next === "all" ? null : next });
+      navigate({ [USERS_SEARCH_PARAMS.status]: next === DEFAULT_USER_STATUS ? null : next });
     });
   }
 
@@ -109,7 +110,7 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
     setSearch("");
     startTransition(() => {
       setOptimisticRoles([]);
-      setOptimisticStatus("all");
+      setOptimisticStatus(DEFAULT_USER_STATUS);
       navigate({
         [USERS_SEARCH_PARAMS.query]: null,
         [USERS_SEARCH_PARAMS.roles]: null,
@@ -119,7 +120,7 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
   }
 
   const hasFilters =
-    search.trim() !== "" || optimisticRoles.length > 0 || optimisticStatus !== "all";
+    search.trim() !== "" || optimisticRoles.length > 0 || optimisticStatus !== DEFAULT_USER_STATUS;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
