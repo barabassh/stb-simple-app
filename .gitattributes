@@ -1,0 +1,2 @@
+# Prettier expects LF; without this, core.autocrlf=true on Windows checks files out as CRLF.
+* text=auto eol=lf
