@@ -1,0 +1,79 @@
+import { z } from "zod";
+
+import { Role } from "@/generated/prisma/enums";
+
+// The form validates on the client and the action parses the submitted values again,
+// so the schemas only normalise strings in place: empty optional fields stay "" here
+// and become null when written.
+
+const emailFormat = z.email();
+
+export const userIdSchema = z.cuid();
+
+const loginField = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3, "users.validation.loginLength")
+  .max(32, "users.validation.loginLength")
+  .regex(/^[a-z0-9._-]+$/, "users.validation.loginFormat");
+
+const passwordField = z
+  .string()
+  .min(10, "users.validation.passwordTooShort")
+  .regex(/\p{L}/u, "users.validation.passwordLettersAndDigits")
+  .regex(/\d/, "users.validation.passwordLettersAndDigits");
+
+const profileShape = {
+  fullName: z
+    .string()
+    .trim()
+    .min(3, "users.validation.fullNameLength")
+    .max(120, "users.validation.fullNameLength"),
+  position: z.string().trim().max(120, "users.validation.positionTooLong"),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine(
+      (value) => value === "" || emailFormat.safeParse(value).success,
+      "users.validation.emailInvalid",
+    ),
+  phone: z.string().trim().max(32, "users.validation.phoneTooLong"),
+  role: z.enum(Role, { error: "users.validation.roleRequired" }),
+  isActive: z.boolean(),
+  comment: z.string().trim().max(500, "users.validation.commentTooLong"),
+};
+
+function passwordDiffersFromLogin({ login, password }: { login: string; password: string }) {
+  return password.toLowerCase() !== login.toLowerCase();
+}
+
+const passwordSameAsLogin = {
+  error: "users.validation.passwordSameAsLogin",
+  path: ["password"],
+};
+
+export const createUserSchema = z
+  .object({ login: loginField, password: passwordField, ...profileShape })
+  .refine(passwordDiffersFromLogin, passwordSameAsLogin);
+
+export const updateUserSchema = z.object(profileShape);
+
+/**
+ * The edit form holds the same values as the create form so that one form serves both;
+ * login and password are carried along unchecked and updateUserSchema drops them on the server.
+ */
+export const editUserFormSchema = updateUserSchema.extend({
+  login: z.string(),
+  password: z.string(),
+});
+
+/** `login` is only compared with the password; the action substitutes the stored login. */
+export const resetPasswordSchema = z
+  .object({ login: z.string(), password: passwordField })
+  .refine(passwordDiffersFromLogin, passwordSameAsLogin);
+
+export type CreateUserInput = z.input<typeof createUserSchema>;
+export type UpdateUserInput = z.input<typeof updateUserSchema>;
+export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;

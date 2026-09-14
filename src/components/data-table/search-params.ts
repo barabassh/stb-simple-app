@@ -27,7 +27,7 @@ export type TableState<TColumn extends string = string> = {
 
 export type SearchParamsInput = Record<string, string | string[] | undefined> | URLSearchParams;
 
-function readParam(searchParams: SearchParamsInput, key: string): string | undefined {
+export function readParam(searchParams: SearchParamsInput, key: string): string | undefined {
   if (searchParams instanceof URLSearchParams) return searchParams.get(key) ?? undefined;
   const value = searchParams[key];
   return Array.isArray(value) ? value[0] : value;

@@ -8,3 +8,5 @@ export type ActionFailure = {
   errorValues?: Record<string, string | number>;
   fieldErrors?: Record<string, string[] | undefined>;
 };
+
+export type ActionResult<TData extends object = object> = ({ ok: true } & TData) | ActionFailure;

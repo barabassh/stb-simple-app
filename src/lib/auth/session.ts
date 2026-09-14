@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { cookies } from "next/headers";
 
-import type { Role } from "@/generated/prisma/client";
+import type { Prisma, Role } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 
 import { SESSION_COOKIE_NAME, SESSION_TTL_MS, sessionCookieOptions } from "./constants";
@@ -96,11 +96,15 @@ export async function invalidateSession(sessionId: string): Promise<void> {
   });
 }
 
+/** Pass `client` inside a transaction so the sessions end together with the change that ends them. */
 export async function invalidateAllUserSessions(
   userId: string,
-  { exceptSessionId }: { exceptSessionId?: string } = {},
+  {
+    exceptSessionId,
+    client = db,
+  }: { exceptSessionId?: string; client?: Prisma.TransactionClient } = {},
 ): Promise<void> {
-  await db.session.updateMany({
+  await client.session.updateMany({
     where: {
       userId,
       revokedAt: null,
