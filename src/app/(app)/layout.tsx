@@ -1,0 +1,23 @@
+import { getTranslations } from "next-intl/server";
+
+import { AppHeader } from "@/components/app-shell/app-header";
+import { AppSidebar } from "@/components/app-shell/app-sidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { requireUser } from "@/lib/auth/current-user";
+
+export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const user = await requireUser();
+  const t = await getTranslations("common");
+
+  return (
+    <div className="flex min-h-svh flex-col">
+      <AppHeader user={user} />
+      <div className="flex flex-1">
+        <AppSidebar user={user} />
+        <main className="flex min-w-0 flex-1 flex-col p-6">{children}</main>
+      </div>
+      {/* The app has no dark theme; without a fixed theme the toasts would follow the OS setting. */}
+      <Toaster theme="light" position="top-right" containerAriaLabel={t("notifications")} />
+    </div>
+  );
+}
