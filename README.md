@@ -56,8 +56,9 @@
    npm run db:seed
    ```
 
-   Логин `admin`, пароль — из `SEED_ADMIN_PASSWORD`, при первом входе его
-   потребуется сменить. Повторный запуск ничего не меняет, если `admin` уже есть.
+   Логин `admin`, пароль — из `SEED_ADMIN_PASSWORD`. Пароли пользователей
+   назначает и сбрасывает только администратор. Повторный запуск ничего
+   не меняет, если `admin` уже есть.
 
 6. Запустите приложение:
 
@@ -113,12 +114,16 @@ npx playwright install chromium
 ├── prisma.config.ts       # конфигурация Prisma CLI (читает .env, команда сида)
 ├── messages/ru.json       # все тексты интерфейса
 ├── src/
-│   ├── app/               # маршруты Next.js (App Router)
+│   ├── app/
+│   │   ├── (auth)/        # страница входа
+│   │   └── (app)/         # защищённая зона
+│   ├── features/auth/     # server actions входа/выхода, схемы Zod, формы
 │   ├── components/ui/     # компоненты shadcn/ui
 │   ├── i18n/request.ts    # next-intl: локаль ru без префикса в URL
-│   ├── lib/auth/          # хэширование паролей (Argon2id)
+│   ├── lib/auth/          # сессии, текущий пользователь, хэширование паролей (Argon2id)
 │   ├── lib/db.ts          # клиент Prisma
 │   ├── lib/format.ts      # даты, время и числа (Europe/Kyiv)
+│   ├── middleware.ts      # без cookie сессии — перенаправление на /login
 │   └── generated/prisma/  # сгенерированный клиент Prisma, не в git
 └── tests/
     ├── unit/              # Vitest

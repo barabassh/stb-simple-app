@@ -28,10 +28,9 @@ async function main() {
       fullName: ADMIN_FULL_NAME,
       role: Role.ADMIN,
       passwordHash: await hashPassword(password),
-      mustChangePassword: true,
     },
   });
-  console.log(`Created user "${ADMIN_LOGIN}". The password must be changed on first login.`);
+  console.log(`Created user "${ADMIN_LOGIN}".`);
 }
 
 main()

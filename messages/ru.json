@@ -5,5 +5,23 @@
   },
   "home": {
     "placeholder": "Каркас приложения готов. Разделы появятся на следующих шагах."
+  },
+  "auth": {
+    "login": {
+      "title": "Вход в систему",
+      "login": "Логин",
+      "password": "Пароль",
+      "showPassword": "Показать пароль",
+      "submit": "Войти"
+    },
+    "signOut": "Выйти",
+    "errors": {
+      "invalidCredentials": "Неверный логин или пароль",
+      "temporarilyLocked": "Вход временно заблокирован. Попробуйте через {minutes} мин."
+    },
+    "validation": {
+      "loginRequired": "Введите логин",
+      "passwordRequired": "Введите пароль"
+    }
   }
 }

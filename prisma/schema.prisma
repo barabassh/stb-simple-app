@@ -44,7 +44,6 @@ model User {
   passwordHash       String
   role               Role      @default(EMPLOYEE)
   isActive           Boolean   @default(true)
-  mustChangePassword Boolean   @default(true)
 
   lastLoginAt        DateTime?
   failedLoginCount   Int       @default(0)
