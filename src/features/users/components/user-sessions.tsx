@@ -8,7 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { SessionUser } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
+import { can } from "@/lib/permissions";
 import { describeUserAgent } from "@/lib/user-agent";
 
 import type { UserSessionItem } from "../queries";
@@ -17,10 +19,12 @@ import { RevokeAllSessionsButton, RevokeSessionButton } from "./user-session-act
 type UserSessionsProps = {
   userId: string;
   sessions: UserSessionItem[];
+  viewer: Pick<SessionUser, "role">;
 };
 
-export function UserSessions({ userId, sessions }: UserSessionsProps) {
+export function UserSessions({ userId, sessions, viewer }: UserSessionsProps) {
   const t = useTranslations("users.sessions");
+  const canRevoke = can(viewer, "users.sessions.revoke");
 
   if (sessions.length === 0) {
     return <p className="rounded-xl border p-8 text-center text-muted-foreground">{t("empty")}</p>;
@@ -28,9 +32,11 @@ export function UserSessions({ userId, sessions }: UserSessionsProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
-        <RevokeAllSessionsButton userId={userId} />
-      </div>
+      {canRevoke && (
+        <div className="flex justify-end">
+          <RevokeAllSessionsButton userId={userId} />
+        </div>
+      )}
       <div className="overflow-hidden rounded-xl border">
         <Table>
           <TableHeader>
@@ -39,9 +45,11 @@ export function UserSessions({ userId, sessions }: UserSessionsProps) {
               <TableHead>{t("ip")}</TableHead>
               <TableHead>{t("browser")}</TableHead>
               <TableHead>{t("lastActiveAt")}</TableHead>
-              <TableHead>
-                <span className="sr-only">{t("actions")}</span>
-              </TableHead>
+              {canRevoke && (
+                <TableHead>
+                  <span className="sr-only">{t("actions")}</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -53,9 +61,11 @@ export function UserSessions({ userId, sessions }: UserSessionsProps) {
                   {describeUserAgent(session.userAgent) ?? t("unknownBrowser")}
                 </TableCell>
                 <TableCell>{formatDateTime(session.lastActiveAt)}</TableCell>
-                <TableCell className="text-right">
-                  <RevokeSessionButton userId={userId} sessionId={session.id} />
-                </TableCell>
+                {canRevoke && (
+                  <TableCell className="text-right">
+                    <RevokeSessionButton userId={userId} sessionId={session.id} />
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

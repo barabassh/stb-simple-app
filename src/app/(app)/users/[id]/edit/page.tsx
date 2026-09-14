@@ -4,17 +4,17 @@ import { getTranslations } from "next-intl/server";
 import { BackLink } from "@/features/users/components/back-link";
 import { UserForm } from "@/features/users/components/user-form";
 import { getUser } from "@/features/users/queries";
-import { requireUser } from "@/lib/auth/current-user";
+import { requirePagePermission } from "@/lib/auth/current-user";
 
 type EditUserPageProps = {
   params: Promise<{ id: string }>;
 };
 
 export default async function EditUserPage({ params }: EditUserPageProps) {
-  await requireUser();
+  const viewer = await requirePagePermission("users.update");
   const { id } = await params;
 
-  const user = await getUser(id);
+  const user = await getUser(viewer, id);
   if (!user) notFound();
 
   const t = await getTranslations("users.form");
@@ -26,7 +26,7 @@ export default async function EditUserPage({ params }: EditUserPageProps) {
         <h1 className="text-xl font-semibold sm:text-2xl">{t("editTitle")}</h1>
         <p className="break-words text-muted-foreground">{user.fullName}</p>
       </div>
-      <UserForm user={user} />
+      <UserForm user={user} viewer={viewer} />
     </div>
   );
 }

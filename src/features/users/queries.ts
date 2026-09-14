@@ -1,8 +1,13 @@
 import type { SortOrder } from "@/components/data-table/search-params";
 import type { Prisma } from "@/generated/prisma/client";
+import type { SessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { requirePermission } from "@/lib/permissions";
 
 import type { UserSortColumn, UsersListParams } from "./list-params";
+
+// Pages check the permission themselves to show the access denied page; the checks here keep
+// a page that forgets it from showing the data anyway.
 
 const listItemSelect = {
   id: true,
@@ -28,12 +33,12 @@ const ORDER_BY: Record<UserSortColumn, (order: SortOrder) => Prisma.UserOrderByW
     createdAt: (order) => ({ createdAt: order }),
   };
 
-export async function listUsers({
-  query,
-  roles,
-  status,
-  table,
-}: UsersListParams): Promise<{ rows: UserListItem[]; rowCount: number }> {
+export async function listUsers(
+  actor: SessionUser,
+  { query, roles, status, table }: UsersListParams,
+): Promise<{ rows: UserListItem[]; rowCount: number }> {
+  requirePermission(actor, "users.read");
+
   const where: Prisma.UserWhereInput = {
     ...(roles.length > 0 ? { role: { in: roles } } : {}),
     ...(status !== "all" ? { isActive: status === "active" } : {}),
@@ -66,7 +71,9 @@ export async function listUsers({
   return { rows, rowCount };
 }
 
-export async function getUser(id: string) {
+export async function getUser(actor: SessionUser, id: string) {
+  requirePermission(actor, "users.read");
+
   return db.user.findUnique({
     where: { id },
     select: {
@@ -87,7 +94,9 @@ export async function getUser(id: string) {
 
 export type UserDetails = NonNullable<Awaited<ReturnType<typeof getUser>>>;
 
-export async function listActiveUserSessions(userId: string) {
+export async function listActiveUserSessions(actor: SessionUser, userId: string) {
+  requirePermission(actor, "users.sessions.read");
+
   return db.session.findMany({
     where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
     select: { id: true, createdAt: true, lastActiveAt: true, ip: true, userAgent: true },

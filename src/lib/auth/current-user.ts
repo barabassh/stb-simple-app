@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { CLEAR_SESSION_PATH, LOGIN_PATH } from "./constants";
+import { can, type Permission } from "@/lib/permissions";
+
+import { CLEAR_SESSION_PATH, FORBIDDEN_PATH, LOGIN_PATH } from "./constants";
 import {
   deleteSessionCookie,
   readSessionCookie,
@@ -27,6 +29,16 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (user) return user;
   redirect((await readSessionCookie()) ? CLEAR_SESSION_PATH : LOGIN_PATH);
+}
+
+/**
+ * For pages of a section. Checked before any data is read, so that a user without access sees
+ * the access denied page rather than an empty list (docs/ПРАВА-ДОСТУПА.md, 3.4).
+ */
+export async function requirePagePermission(permission: Permission): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!can(user, permission)) redirect(FORBIDDEN_PATH);
+  return user;
 }
 
 /**

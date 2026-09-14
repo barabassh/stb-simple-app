@@ -34,3 +34,18 @@ export function can(user: Pick<SessionUser, "role">, permission: Permission): bo
     grant.endsWith(".*") ? permission.startsWith(grant.slice(0, -1)) : grant === permission,
   );
 }
+
+export class PermissionDeniedError extends Error {
+  constructor(readonly permission: Permission) {
+    super(`Permission denied: ${permission}`);
+    this.name = "PermissionDeniedError";
+  }
+}
+
+/**
+ * Throws PermissionDeniedError. Pages turn it into the access denied page and server actions
+ * into a refusal, see requirePagePermission() and authorizedAction().
+ */
+export function requirePermission(user: Pick<SessionUser, "role">, permission: Permission): void {
+  if (!can(user, permission)) throw new PermissionDeniedError(permission);
+}

@@ -9,20 +9,24 @@ import { UserProfileDetails } from "@/features/users/components/user-profile-det
 import { UserSessions } from "@/features/users/components/user-sessions";
 import { UserStatusBadge } from "@/features/users/components/user-status-badge";
 import { getUser, listActiveUserSessions } from "@/features/users/queries";
-import { requireUser } from "@/lib/auth/current-user";
+import { requirePagePermission } from "@/lib/auth/current-user";
+import { can } from "@/lib/permissions";
 
 type UserPageProps = {
   params: Promise<{ id: string }>;
 };
 
 export default async function UserPage({ params }: UserPageProps) {
-  await requireUser();
+  const viewer = await requirePagePermission("users.read");
   const { id } = await params;
 
-  const user = await getUser(id);
+  const user = await getUser(viewer, id);
   if (!user) notFound();
 
-  const [sessions, t] = await Promise.all([listActiveUserSessions(id), getTranslations("users")]);
+  const [sessions, t] = await Promise.all([
+    can(viewer, "users.sessions.read") ? listActiveUserSessions(viewer, id) : null,
+    getTranslations("users"),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -45,23 +49,28 @@ export default async function UserPage({ params }: UserPageProps) {
             fullName: user.fullName,
             isActive: user.isActive,
           }}
+          viewer={viewer}
         />
       </div>
 
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">{t("card.tabs.profile")}</TabsTrigger>
-          <TabsTrigger value="sessions">
-            {t("card.tabs.sessions")}
-            <Badge variant="secondary">{sessions.length}</Badge>
-          </TabsTrigger>
+          {sessions && (
+            <TabsTrigger value="sessions">
+              {t("card.tabs.sessions")}
+              <Badge variant="secondary">{sessions.length}</Badge>
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="profile">
           <UserProfileDetails user={user} />
         </TabsContent>
-        <TabsContent value="sessions">
-          <UserSessions userId={user.id} sessions={sessions} />
-        </TabsContent>
+        {sessions && (
+          <TabsContent value="sessions">
+            <UserSessions userId={user.id} sessions={sessions} viewer={viewer} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

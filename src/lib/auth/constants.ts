@@ -2,6 +2,7 @@
 
 export const LOGIN_PATH = "/login";
 export const HOME_PATH = "/";
+export const FORBIDDEN_PATH = "/forbidden";
 export const CLEAR_SESSION_PATH = "/api/auth/clear-session";
 
 export const SESSION_COOKIE_NAME = "session";

@@ -12,7 +12,8 @@ import { UsersTable } from "@/features/users/components/users-table";
 import { UsersToolbar } from "@/features/users/components/users-toolbar";
 import { hasUserFilters, parseUsersListParams } from "@/features/users/list-params";
 import { listUsers } from "@/features/users/queries";
-import { requireUser } from "@/lib/auth/current-user";
+import { requirePagePermission } from "@/lib/auth/current-user";
+import { can } from "@/lib/permissions";
 
 type UsersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -34,12 +35,12 @@ function resetFiltersHref(searchParams: SearchParamsInput): string {
 }
 
 export default async function UsersPage({ searchParams }: UsersPageProps) {
-  await requireUser();
+  const viewer = await requirePagePermission("users.read");
   const t = await getTranslations("users.list");
 
   const resolvedSearchParams = await searchParams;
   const params = parseUsersListParams(resolvedSearchParams);
-  const { rows, rowCount } = await listUsers(params);
+  const { rows, rowCount } = await listUsers(viewer, params);
 
   const emptyState = hasUserFilters(params) ? (
     <div className="flex flex-col items-center gap-1">
@@ -56,16 +57,24 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold sm:text-2xl">{t("title")}</h1>
-        <Button asChild>
-          <Link href="/users/new">
-            <UserPlusIcon aria-hidden />
-            {t("create")}
-          </Link>
-        </Button>
+        {can(viewer, "users.create") && (
+          <Button asChild>
+            <Link href="/users/new">
+              <UserPlusIcon aria-hidden />
+              {t("create")}
+            </Link>
+          </Button>
+        )}
       </div>
 
       <UsersToolbar query={params.query} roles={params.roles} status={params.status} />
-      <UsersTable rows={rows} rowCount={rowCount} state={params.table} emptyState={emptyState} />
+      <UsersTable
+        rows={rows}
+        rowCount={rowCount}
+        state={params.table}
+        emptyState={emptyState}
+        viewer={viewer}
+      />
     </div>
   );
 }

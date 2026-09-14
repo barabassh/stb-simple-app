@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ActionFailure } from "@/lib/action-result";
+import type { SessionUser } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
 
 import { createUser, updateUser } from "../actions";
 import { USER_ROLES } from "../list-params";
@@ -30,6 +32,7 @@ import { createUserSchema, editUserFormSchema, type CreateUserInput } from "../s
 type UserFormProps = {
   /** The user being edited; omitted when creating one. */
   user?: UserDetails;
+  viewer: Pick<SessionUser, "role">;
 };
 
 function toFormValues(user: UserDetails | undefined): CreateUserInput {
@@ -46,10 +49,14 @@ function toFormValues(user: UserDetails | undefined): CreateUserInput {
   };
 }
 
-export function UserForm({ user }: UserFormProps) {
+export function UserForm({ user, viewer }: UserFormProps) {
   const t = useTranslations();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+
+  // Creating a user sets the role and the status as part of users.create.
+  const roleLocked = !!user && !can(viewer, "users.changeRole");
+  const statusLocked = !!user && !can(viewer, "users.changeStatus");
 
   const form = useForm<CreateUserInput>({
     resolver: zodResolver(user ? editUserFormSchema : createUserSchema),
@@ -186,7 +193,7 @@ export function UserForm({ user }: UserFormProps) {
             control={form.control}
             name="role"
             render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select value={field.value} onValueChange={field.onChange} disabled={roleLocked}>
                 <SelectTrigger
                   id="role"
                   ref={field.ref}
@@ -220,6 +227,7 @@ export function UserForm({ user }: UserFormProps) {
                 checked={field.value}
                 onCheckedChange={(checked) => field.onChange(checked === true)}
                 onBlur={field.onBlur}
+                disabled={statusLocked}
               />
             )}
           />

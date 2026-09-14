@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import type { DataTableFeatures } from "@/components/data-table/features";
 import type { TableState } from "@/components/data-table/search-params";
+import type { SessionUser } from "@/lib/auth/session";
 import { formatDate, formatDateTime } from "@/lib/format";
 
 import type { UserSortColumn } from "../list-params";
@@ -22,9 +23,10 @@ type UsersTableProps = {
   rowCount: number;
   state: TableState<UserSortColumn>;
   emptyState?: React.ReactNode;
+  viewer: Pick<SessionUser, "role">;
 };
 
-export function UsersTable({ rows, rowCount, state, emptyState }: UsersTableProps) {
+export function UsersTable({ rows, rowCount, state, emptyState, viewer }: UsersTableProps) {
   const t = useTranslations("users");
 
   // Column ids match USER_SORT_COLUMNS: the table writes them to the URL as the sort parameter.
@@ -66,10 +68,10 @@ export function UsersTable({ rows, rowCount, state, emptyState }: UsersTableProp
         columnHelper.display({
           id: "actions",
           header: () => <span className="sr-only">{t("columns.actions")}</span>,
-          cell: ({ row }) => <UserRowActions user={row.original} />,
+          cell: ({ row }) => <UserRowActions user={row.original} viewer={viewer} />,
         }),
       ]),
-    [t],
+    [t, viewer],
   );
 
   return (

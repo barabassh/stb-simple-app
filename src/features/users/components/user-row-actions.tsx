@@ -20,12 +20,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { SessionUser } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
 
 import { toggleStatus } from "../actions";
 import { UserActionDialogs, type UserActionTarget, type UserDialog } from "./user-action-dialogs";
 import { useRunAction } from "./use-run-action";
 
-export function UserRowActions({ user }: { user: UserActionTarget }) {
+type UserRowActionsProps = {
+  user: UserActionTarget;
+  viewer: Pick<SessionUser, "role">;
+};
+
+export function UserRowActions({ user, viewer }: UserRowActionsProps) {
   const t = useTranslations("users");
   const [dialog, setDialog] = useState<UserDialog>(null);
   const { run, isPending } = useRunAction();
@@ -51,29 +58,37 @@ export function UserRowActions({ user }: { user: UserActionTarget }) {
               {t("actions.open")}
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href={`/users/${user.id}/edit`}>
-              <PencilIcon aria-hidden />
-              {t("actions.edit")}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setDialog("resetPassword")}>
-            <KeyRoundIcon aria-hidden />
-            {t("actions.resetPassword")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {user.isActive ? (
-            <DropdownMenuItem variant="destructive" onSelect={() => setDialog("deactivate")}>
-              <UserXIcon aria-hidden />
-              {t("actions.deactivate")}
+          {can(viewer, "users.update") && (
+            <DropdownMenuItem asChild>
+              <Link href={`/users/${user.id}/edit`}>
+                <PencilIcon aria-hidden />
+                {t("actions.edit")}
+              </Link>
             </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onSelect={() => run(() => toggleStatus(user.id, true), "users.toasts.activated")}
-            >
-              <UserCheckIcon aria-hidden />
-              {t("actions.activate")}
+          )}
+          {can(viewer, "users.resetPassword") && (
+            <DropdownMenuItem onSelect={() => setDialog("resetPassword")}>
+              <KeyRoundIcon aria-hidden />
+              {t("actions.resetPassword")}
             </DropdownMenuItem>
+          )}
+          {can(viewer, "users.changeStatus") && (
+            <>
+              <DropdownMenuSeparator />
+              {user.isActive ? (
+                <DropdownMenuItem variant="destructive" onSelect={() => setDialog("deactivate")}>
+                  <UserXIcon aria-hidden />
+                  {t("actions.deactivate")}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onSelect={() => run(() => toggleStatus(user.id, true), "users.toasts.activated")}
+                >
+                  <UserCheckIcon aria-hidden />
+                  {t("actions.activate")}
+                </DropdownMenuItem>
+              )}
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

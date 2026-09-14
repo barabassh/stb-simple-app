@@ -5,10 +5,11 @@ import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
-import { requireActionUser } from "@/lib/auth/current-user";
+import { authorizedAction } from "@/lib/auth/authorized-action";
 import { hashPassword } from "@/lib/auth/password";
 import { invalidateAllUserSessions, invalidateSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { requirePermission } from "@/lib/permissions";
 
 import { createUserSchema, resetPasswordSchema, updateUserSchema, userIdSchema } from "./schemas";
 
@@ -90,134 +91,146 @@ async function uniqueViolation(
   return Object.keys(fieldErrors).length > 0 ? { ok: false, fieldErrors } : null;
 }
 
-export async function createUser(input: unknown): Promise<ActionResult<{ id: string }>> {
-  const actor = await requireActionUser();
+export const createUser = authorizedAction(
+  "users.create",
+  async (actor, input: unknown): Promise<ActionResult<{ id: string }>> => {
+    const parsed = createUserSchema.safeParse(input);
+    if (!parsed.success) return validationFailure(parsed.error);
+    const { login, password, ...profile } = parsed.data;
+    const data = toProfileData(profile);
 
-  const parsed = createUserSchema.safeParse(input);
-  if (!parsed.success) return validationFailure(parsed.error);
-  const { login, password, ...profile } = parsed.data;
-  const data = toProfileData(profile);
+    try {
+      const { id } = await db.user.create({
+        data: {
+          ...data,
+          login,
+          passwordHash: await hashPassword(password),
+          createdById: actor.id,
+          updatedById: actor.id,
+        },
+        select: { id: true },
+      });
 
-  try {
-    const { id } = await db.user.create({
-      data: {
-        ...data,
-        login,
-        passwordHash: await hashPassword(password),
-        createdById: actor.id,
-        updatedById: actor.id,
-      },
-      select: { id: true },
+      revalidatePath(USERS_PATH, "layout");
+      return { ok: true, id };
+    } catch (error) {
+      const failure = await uniqueViolation(error, { login, email: data.email });
+      if (failure) return failure;
+      throw error;
+    }
+  },
+);
+
+/** The role and the status are separate permissions, checked only when the form changes them. */
+export const updateUser = authorizedAction(
+  "users.update",
+  async (actor, id: string, input: unknown): Promise<ActionResult> => {
+    if (!userIdSchema.safeParse(id).success) return notFound;
+    const parsed = updateUserSchema.safeParse(input);
+    if (!parsed.success) return validationFailure(parsed.error);
+    const data = toProfileData(parsed.data);
+
+    if (!data.isActive && id === actor.id) return cannotDeactivateSelf;
+
+    try {
+      const result = await db.$transaction(async (tx): Promise<ActionResult> => {
+        const adminIds = await lockActiveAdminIds(tx);
+        const target = await tx.user.findUnique({
+          where: { id },
+          select: { role: true, isActive: true },
+        });
+        if (!target) return notFound;
+        if (data.role !== target.role) requirePermission(actor, "users.changeRole");
+        if (data.isActive !== target.isActive) requirePermission(actor, "users.changeStatus");
+        if (isLastActiveAdmin(adminIds, id) && (data.role !== "ADMIN" || !data.isActive)) {
+          return lastAdmin;
+        }
+
+        await tx.user.update({ where: { id }, data: { ...data, updatedById: actor.id } });
+        if (target.isActive && !data.isActive) {
+          await invalidateAllUserSessions(id, { client: tx });
+        }
+        return { ok: true };
+      });
+
+      if (result.ok) revalidatePath(USERS_PATH, "layout");
+      return result;
+    } catch (error) {
+      const failure = await uniqueViolation(error, { email: data.email, userId: id });
+      if (failure) return failure;
+      throw error;
+    }
+  },
+);
+
+export const resetPassword = authorizedAction(
+  "users.resetPassword",
+  async (actor, id: string, input: unknown): Promise<ActionResult> => {
+    if (!userIdSchema.safeParse(id).success) return notFound;
+    const target = await db.user.findUnique({ where: { id }, select: { login: true } });
+    if (!target) return notFound;
+
+    // The password is compared with the stored login, not with whatever the client sent.
+    const parsed = resetPasswordSchema.safeParse({ ...(input as object), login: target.login });
+    if (!parsed.success) return validationFailure(parsed.error);
+
+    const passwordHash = await hashPassword(parsed.data.password);
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id }, data: { passwordHash, updatedById: actor.id } });
+      await invalidateAllUserSessions(id, { client: tx });
     });
 
     revalidatePath(USERS_PATH, "layout");
-    return { ok: true, id };
-  } catch (error) {
-    const failure = await uniqueViolation(error, { login, email: data.email });
-    if (failure) return failure;
-    throw error;
-  }
-}
+    return { ok: true };
+  },
+);
 
-export async function updateUser(id: string, input: unknown): Promise<ActionResult> {
-  const actor = await requireActionUser();
+/** Deactivates (`isActive: false`) or activates a user; deactivation ends every session. */
+export const toggleStatus = authorizedAction(
+  "users.changeStatus",
+  async (actor, id: string, isActive: boolean): Promise<ActionResult> => {
+    if (!userIdSchema.safeParse(id).success) return notFound;
+    if (!z.boolean().safeParse(isActive).success) return invalidRequest;
 
-  if (!userIdSchema.safeParse(id).success) return notFound;
-  const parsed = updateUserSchema.safeParse(input);
-  if (!parsed.success) return validationFailure(parsed.error);
-  const data = toProfileData(parsed.data);
+    if (!isActive && id === actor.id) return cannotDeactivateSelf;
 
-  if (!data.isActive && id === actor.id) return cannotDeactivateSelf;
-
-  try {
     const result = await db.$transaction(async (tx): Promise<ActionResult> => {
       const adminIds = await lockActiveAdminIds(tx);
       const target = await tx.user.findUnique({ where: { id }, select: { isActive: true } });
       if (!target) return notFound;
-      if (isLastActiveAdmin(adminIds, id) && (data.role !== "ADMIN" || !data.isActive)) {
-        return lastAdmin;
-      }
+      if (target.isActive === isActive) return { ok: true };
+      if (!isActive && isLastActiveAdmin(adminIds, id)) return lastAdmin;
 
-      await tx.user.update({ where: { id }, data: { ...data, updatedById: actor.id } });
-      if (target.isActive && !data.isActive) {
-        await invalidateAllUserSessions(id, { client: tx });
-      }
+      await tx.user.update({ where: { id }, data: { isActive, updatedById: actor.id } });
+      if (!isActive) await invalidateAllUserSessions(id, { client: tx });
       return { ok: true };
     });
 
     if (result.ok) revalidatePath(USERS_PATH, "layout");
     return result;
-  } catch (error) {
-    const failure = await uniqueViolation(error, { email: data.email, userId: id });
-    if (failure) return failure;
-    throw error;
-  }
-}
+  },
+);
 
-export async function resetPassword(id: string, input: unknown): Promise<ActionResult> {
-  const actor = await requireActionUser();
+export const revokeUserSession = authorizedAction(
+  "users.sessions.revoke",
+  async (_actor, userId: string, sessionId: string): Promise<ActionResult> => {
+    if (!userIdSchema.safeParse(userId).success || !z.cuid().safeParse(sessionId).success) {
+      return notFound;
+    }
 
-  if (!userIdSchema.safeParse(id).success) return notFound;
-  const target = await db.user.findUnique({ where: { id }, select: { login: true } });
-  if (!target) return notFound;
-
-  // The password is compared with the stored login, not with whatever the client sent.
-  const parsed = resetPasswordSchema.safeParse({ ...(input as object), login: target.login });
-  if (!parsed.success) return validationFailure(parsed.error);
-
-  const passwordHash = await hashPassword(parsed.data.password);
-  await db.$transaction(async (tx) => {
-    await tx.user.update({ where: { id }, data: { passwordHash, updatedById: actor.id } });
-    await invalidateAllUserSessions(id, { client: tx });
-  });
-
-  revalidatePath(USERS_PATH, "layout");
-  return { ok: true };
-}
-
-/** Deactivates (`isActive: false`) or activates a user; deactivation ends every session. */
-export async function toggleStatus(id: string, isActive: boolean): Promise<ActionResult> {
-  const actor = await requireActionUser();
-
-  if (!userIdSchema.safeParse(id).success) return notFound;
-  if (!z.boolean().safeParse(isActive).success) return invalidRequest;
-
-  if (!isActive && id === actor.id) return cannotDeactivateSelf;
-
-  const result = await db.$transaction(async (tx): Promise<ActionResult> => {
-    const adminIds = await lockActiveAdminIds(tx);
-    const target = await tx.user.findUnique({ where: { id }, select: { isActive: true } });
-    if (!target) return notFound;
-    if (target.isActive === isActive) return { ok: true };
-    if (!isActive && isLastActiveAdmin(adminIds, id)) return lastAdmin;
-
-    await tx.user.update({ where: { id }, data: { isActive, updatedById: actor.id } });
-    if (!isActive) await invalidateAllUserSessions(id, { client: tx });
+    await invalidateSession(sessionId);
+    revalidatePath(`${USERS_PATH}/${userId}`);
     return { ok: true };
-  });
+  },
+);
 
-  if (result.ok) revalidatePath(USERS_PATH, "layout");
-  return result;
-}
+export const revokeAllUserSessions = authorizedAction(
+  "users.sessions.revoke",
+  async (_actor, userId: string): Promise<ActionResult> => {
+    if (!userIdSchema.safeParse(userId).success) return notFound;
 
-export async function revokeUserSession(userId: string, sessionId: string): Promise<ActionResult> {
-  await requireActionUser();
-
-  if (!userIdSchema.safeParse(userId).success || !z.cuid().safeParse(sessionId).success) {
-    return notFound;
-  }
-
-  await invalidateSession(sessionId);
-  revalidatePath(`${USERS_PATH}/${userId}`);
-  return { ok: true };
-}
-
-export async function revokeAllUserSessions(userId: string): Promise<ActionResult> {
-  await requireActionUser();
-
-  if (!userIdSchema.safeParse(userId).success) return notFound;
-
-  await invalidateAllUserSessions(userId);
-  revalidatePath(`${USERS_PATH}/${userId}`);
-  return { ok: true };
-}
+    await invalidateAllUserSessions(userId);
+    revalidatePath(`${USERS_PATH}/${userId}`);
+    return { ok: true };
+  },
+);
