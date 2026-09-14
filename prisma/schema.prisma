@@ -1,0 +1,10 @@
+// Models are described in docs/СХЕМА-БД.md and added from step 1 on.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

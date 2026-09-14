@@ -1,0 +1,10 @@
+.next
+node_modules
+coverage
+test-results
+playwright-report
+src/generated
+package-lock.json
+# Human-written documentation: keep authors' formatting.
+docs
+CLAUDE.md
