@@ -63,7 +63,10 @@
     "firstPage": "Первая страница",
     "previousPage": "Предыдущая страница",
     "nextPage": "Следующая страница",
-    "lastPage": "Последняя страница"
+    "lastPage": "Последняя страница",
+    "details": "Подробности",
+    "showDetails": "Показать подробности",
+    "hideDetails": "Скрыть подробности"
   },
   "users": {
     "roles": {
@@ -154,7 +157,8 @@
     "card": {
       "tabs": {
         "profile": "Профиль",
-        "sessions": "Сессии"
+        "sessions": "Сессии",
+        "history": "История изменений"
       },
       "notSet": "Не указано",
       "neverLoggedIn": "Входов ещё не было"
@@ -220,7 +224,87 @@
     }
   },
   "audit": {
-    "title": "Журнал аудита"
+    "title": "Журнал аудита",
+    "actions": {
+      "LOGIN": "Вход",
+      "LOGIN_FAILED": "Неудачный вход",
+      "LOGOUT": "Выход",
+      "CREATE": "Создание",
+      "UPDATE": "Изменение",
+      "DELETE": "Удаление",
+      "ROLE_CHANGE": "Смена роли",
+      "PASSWORD_CHANGE": "Сброс пароля",
+      "STATUS_CHANGE": "Смена статуса",
+      "SESSION_REVOKE": "Завершение сессии",
+      "EXPORT": "Выгрузка",
+      "IMPORT": "Импорт"
+    },
+    "entities": {
+      "User": "Пользователь",
+      "Session": "Сессия"
+    },
+    "fields": {
+      "User": {
+        "login": "Логин",
+        "fullName": "ФИО",
+        "position": "Должность",
+        "email": "Email",
+        "phone": "Телефон",
+        "role": "Роль",
+        "isActive": "Статус",
+        "comment": "Комментарий"
+      }
+    },
+    "columns": {
+      "at": "Время",
+      "actor": "Автор",
+      "action": "Действие",
+      "entity": "Объект",
+      "summary": "Описание"
+    },
+    "filters": {
+      "actor": "Автор",
+      "actorPlaceholder": "Логин или ФИО автора",
+      "action": "Действие",
+      "entity": "Объект",
+      "allEntities": "Все объекты",
+      "from": "С даты",
+      "to": "По дату",
+      "reset": "Сбросить фильтры"
+    },
+    "empty": "Записей в журнале ещё нет",
+    "nothingFound": "По заданным фильтрам ничего не найдено",
+    "historyEmpty": "Изменений ещё не было",
+    "details": {
+      "changes": "Изменения",
+      "notSet": "не задано",
+      "ip": "IP-адрес",
+      "browser": "Браузер",
+      "entityId": "Идентификатор объекта"
+    },
+    "stamps": {
+      "created": "Создано: {date}",
+      "createdBy": "Создано: {date}, {author}",
+      "updated": "Изменено: {date}",
+      "updatedBy": "Изменено: {date}, {author}"
+    },
+    "summaries": {
+      "login": "Вход в систему",
+      "loginFailedUnknown": "Неудачный вход: учётная запись не найдена",
+      "loginFailedInactive": "Неудачный вход: учётная запись деактивирована",
+      "loginFailedPassword": "Неудачный вход: неверный пароль",
+      "loginFailedLocked": "Неудачный вход: вход временно заблокирован",
+      "loginLocked": "Неудачный вход: неверный пароль, вход заблокирован на {minutes} мин.",
+      "logout": "Выход из системы",
+      "userCreated": "Создан пользователь {login}",
+      "userUpdated": "Изменены данные пользователя {login}",
+      "roleChanged": "Изменена роль пользователя {login}",
+      "userDeactivated": "Пользователь {login} деактивирован, его сессии завершены",
+      "userActivated": "Пользователь {login} активирован",
+      "passwordReset": "Сброшен пароль пользователя {login}, его сессии завершены",
+      "sessionRevoked": "Завершена сессия пользователя {login}: {browser}",
+      "allSessionsRevoked": "Завершены все сессии пользователя {login}"
+    }
   },
   "profile": {
     "title": "Профиль"

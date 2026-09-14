@@ -88,6 +88,9 @@ export async function getUser(actor: SessionUser, id: string) {
       isActive: true,
       lastLoginAt: true,
       createdAt: true,
+      updatedAt: true,
+      createdBy: { select: { fullName: true, login: true } },
+      updatedBy: { select: { fullName: true, login: true } },
     },
   });
 }

@@ -42,6 +42,51 @@ export function formatDateTime(value: DateInput | null | undefined): string {
   return `${day}.${month}.${year} ${hour}:${minute}`;
 }
 
+/** Difference between the wall clock in Europe/Kyiv and UTC at the given instant, in ms. */
+function displayOffsetAt(instant: number): number {
+  const { day, month, year, hour, minute } = toParts(instant);
+  const wallClock = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+  );
+  return wallClock - Math.floor(instant / 60_000) * 60_000;
+}
+
+function startOfDisplayDay(year: number, monthIndex: number, day: number): Date {
+  const midnight = Date.UTC(year, monthIndex, day);
+  // Measured again at the first estimate, in case the offset changes between the two instants.
+  const estimate = midnight - displayOffsetAt(midnight);
+  return new Date(midnight - displayOffsetAt(estimate));
+}
+
+/**
+ * The UTC instants a calendar day (`yyyy-MM-dd`, as a date input gives it) starts and ends in
+ * Europe/Kyiv, for filtering stored timestamps by the dates a user picks. The end is exclusive.
+ * Null for anything that is not a real date.
+ */
+export function displayDayRange(value: string): { start: Date; end: Date } | null {
+  const match = /^([1-9]\d{3})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const [year, monthIndex, day] = [Number(match[1]), Number(match[2]) - 1, Number(match[3])];
+  const date = new Date(Date.UTC(year, monthIndex, day));
+  if (date.getUTCMonth() !== monthIndex || date.getUTCDate() !== day) return null;
+
+  return {
+    start: startOfDisplayDay(year, monthIndex, day),
+    end: startOfDisplayDay(year, monthIndex, day + 1),
+  };
+}
+
+/** "Иванов Иван Иванович" → "Иванов И. И.": the first name in full, the rest as initials. */
+export function formatShortName(fullName: string): string {
+  const [first = "", ...rest] = fullName.trim().split(/\s+/);
+  return [first, ...rest.map((name) => `${name.charAt(0).toLocaleUpperCase("ru")}.`)].join(" ");
+}
+
 export type NumberFormatOptions = {
   minimumFractionDigits?: number;
   maximumFractionDigits?: number;

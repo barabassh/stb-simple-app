@@ -26,17 +26,23 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+type ClientOption = {
+  /** Pass inside a transaction so the session changes together with the change that causes it. */
+  client?: Prisma.TransactionClient;
+};
+
 /** Stores only the SHA-256 of the token and returns the token itself for the cookie. */
 export async function createSession(
   userId: string,
   ip: string | null,
   userAgent: string | null,
-): Promise<string> {
+  { client = db }: ClientOption = {},
+): Promise<{ id: string; token: string }> {
   const token = randomBytes(32).toString("base64url");
   const now = Date.now();
 
-  await db.session.deleteMany({ where: { userId, expiresAt: { lt: new Date(now) } } });
-  await db.session.create({
+  await client.session.deleteMany({ where: { userId, expiresAt: { lt: new Date(now) } } });
+  const { id } = await client.session.create({
     data: {
       userId,
       tokenHash: hashToken(token),
@@ -44,9 +50,10 @@ export async function createSession(
       ip,
       userAgent,
     },
+    select: { id: true },
   });
 
-  return token;
+  return { id, token };
 }
 
 export async function validateSession(token: string): Promise<ValidatedSession | null> {
@@ -88,22 +95,24 @@ export async function validateSession(token: string): Promise<ValidatedSession |
   return { session: { id: record.id, expiresAt }, user };
 }
 
-export async function invalidateSession(sessionId: string): Promise<void> {
-  await db.session.updateMany({
+/** Returns false if the session was already revoked, so that only a real revocation is logged. */
+export async function invalidateSession(
+  sessionId: string,
+  { client = db }: ClientOption = {},
+): Promise<boolean> {
+  const { count } = await client.session.updateMany({
     where: { id: sessionId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
+  return count > 0;
 }
 
-/** Pass `client` inside a transaction so the sessions end together with the change that ends them. */
+/** Returns the number of sessions revoked. */
 export async function invalidateAllUserSessions(
   userId: string,
-  {
-    exceptSessionId,
-    client = db,
-  }: { exceptSessionId?: string; client?: Prisma.TransactionClient } = {},
-): Promise<void> {
-  await client.session.updateMany({
+  { exceptSessionId, client = db }: ClientOption & { exceptSessionId?: string } = {},
+): Promise<number> {
+  const { count } = await client.session.updateMany({
     where: {
       userId,
       revokedAt: null,
@@ -111,6 +120,7 @@ export async function invalidateAllUserSessions(
     },
     data: { revokedAt: new Date() },
   });
+  return count;
 }
 
 export async function readSessionCookie(): Promise<string | null> {

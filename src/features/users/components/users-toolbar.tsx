@@ -1,11 +1,13 @@
 "use client";
 
 import { ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { useOptimistic, useTransition } from "react";
 
-import { TABLE_SEARCH_PARAMS } from "@/components/data-table/search-params";
+import {
+  useDebouncedFilter,
+  useFilterNavigation,
+} from "@/components/data-table/use-filter-navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,8 +34,6 @@ import {
   type UserStatusFilter,
 } from "../list-params";
 
-const SEARCH_DEBOUNCE_MS = 300;
-
 type UsersToolbarProps = {
   query: string;
   roles: Role[];
@@ -42,50 +42,12 @@ type UsersToolbarProps = {
 
 export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
   const t = useTranslations("users");
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useFilterNavigation();
   const [, startTransition] = useTransition();
   // The URL only changes once the navigation finishes; until then the menu shows the new choice.
   const [optimisticRoles, setOptimisticRoles] = useOptimistic(roles);
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(status);
-  const [search, setSearch] = useState(query);
-  // Tells the search this component wrote to the URL apart from outside changes (back button, reset link).
-  const pushedQuery = useRef(query);
-
-  const navigate = useCallback(
-    (changes: Record<string, string | null>, history: "push" | "replace" = "push") => {
-      // Read at call time rather than from props: the debounced search fires later
-      // and must not undo a filter changed in the meantime.
-      const params = new URLSearchParams(window.location.search);
-      for (const [key, value] of Object.entries(changes)) {
-        if (value) params.set(key, value);
-        else params.delete(key);
-      }
-      params.delete(TABLE_SEARCH_PARAMS.page);
-
-      const search = params.toString();
-      router[history](search ? `${pathname}?${search}` : pathname, { scroll: false });
-    },
-    [router, pathname],
-  );
-
-  useEffect(() => {
-    if (query !== pushedQuery.current) {
-      pushedQuery.current = query;
-      setSearch(query);
-    }
-  }, [query]);
-
-  useEffect(() => {
-    const value = search.trim();
-    if (value === pushedQuery.current) return;
-
-    const timer = setTimeout(() => {
-      pushedQuery.current = value;
-      navigate({ [USERS_SEARCH_PARAMS.query]: value }, "replace");
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [search, navigate]);
+  const search = useDebouncedFilter(query, USERS_SEARCH_PARAMS.query, navigate);
 
   function changeRole(role: Role, checked: boolean) {
     const next = USER_ROLES.filter((item) =>
@@ -106,8 +68,7 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
   }
 
   function resetFilters() {
-    pushedQuery.current = "";
-    setSearch("");
+    search.clear();
     startTransition(() => {
       setOptimisticRoles([]);
       setOptimisticStatus(DEFAULT_USER_STATUS);
@@ -120,7 +81,9 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
   }
 
   const hasFilters =
-    search.trim() !== "" || optimisticRoles.length > 0 || optimisticStatus !== DEFAULT_USER_STATUS;
+    search.input.trim() !== "" ||
+    optimisticRoles.length > 0 ||
+    optimisticStatus !== DEFAULT_USER_STATUS;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -131,8 +94,8 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
         />
         <Input
           type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          value={search.input}
+          onChange={(event) => search.setInput(event.target.value)}
           placeholder={t("list.searchPlaceholder")}
           aria-label={t("list.searchLabel")}
           className="pl-8"

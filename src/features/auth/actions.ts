@@ -3,9 +3,11 @@
 import { randomBytes } from "node:crypto";
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import type { ActionFailure } from "@/lib/action-result";
+import { logAudit, type AuditEntry } from "@/lib/audit";
 import { HOME_PATH, LOGIN_PATH } from "@/lib/auth/constants";
 import { getCurrentSession } from "@/lib/auth/current-user";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
@@ -21,7 +23,11 @@ import { getClientInfo } from "@/lib/request-info";
 import { loginSchema } from "./schemas";
 
 const MAX_FAILED_LOGINS = 5;
-const LOGIN_LOCK_MS = 15 * 60 * 1000;
+const LOGIN_LOCK_MINUTES = 15;
+const LOGIN_LOCK_MS = LOGIN_LOCK_MINUTES * 60 * 1000;
+
+// The sign-in form accepts any text; a longer value is not a login and is not worth storing whole.
+const MAX_LOGGED_LOGIN_LENGTH = 64;
 
 const invalidCredentials: ActionFailure = { ok: false, error: "auth.errors.invalidCredentials" };
 
@@ -40,6 +46,16 @@ export async function signIn(input: unknown): Promise<ActionFailure> {
     return { ok: false, fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
   const { login, password } = parsed.data;
+  const [t, request] = await Promise.all([getTranslations("audit.summaries"), getClientInfo()]);
+
+  // The reason is shown only in the log: the form gives one text for all of them.
+  const failedAttempt = (summary: string): AuditEntry => ({
+    ...request,
+    actor: { id: null, login: login.slice(0, MAX_LOGGED_LOGIN_LENGTH) },
+    action: "LOGIN_FAILED",
+    entity: "Session",
+    summary,
+  });
 
   const user = await db.user.findUnique({
     where: { login },
@@ -54,11 +70,13 @@ export async function signIn(input: unknown): Promise<ActionFailure> {
 
   if (!user || !user.isActive) {
     await verifyAgainstDummyHash(password);
+    await logAudit(db, failedAttempt(t(user ? "loginFailedInactive" : "loginFailedUnknown")));
     return invalidCredentials;
   }
 
   const now = Date.now();
   if (user.lockedUntil && user.lockedUntil.getTime() > now) {
+    await logAudit(db, failedAttempt(t("loginFailedLocked")));
     return {
       ok: false,
       error: "auth.errors.temporarilyLocked",
@@ -71,35 +89,67 @@ export async function signIn(input: unknown): Promise<ActionFailure> {
   const { updatedAt } = user;
 
   if (!(await verifyPassword(user.passwordHash, password))) {
-    // The increment is done in the database: parallel guesses must not all read the same counter.
-    const { failedLoginCount } = await db.user.update({
-      where: { id: user.id },
-      data: { failedLoginCount: { increment: 1 }, updatedAt },
-      select: { failedLoginCount: true },
-    });
-    if (failedLoginCount >= MAX_FAILED_LOGINS) {
-      await db.user.update({
+    await db.$transaction(async (tx) => {
+      // The increment is done in the database: parallel guesses must not all read the same counter.
+      const { failedLoginCount } = await tx.user.update({
         where: { id: user.id },
-        data: { failedLoginCount: 0, lockedUntil: new Date(now + LOGIN_LOCK_MS), updatedAt },
+        data: { failedLoginCount: { increment: 1 }, updatedAt },
+        select: { failedLoginCount: true },
       });
-    }
+      const locked = failedLoginCount >= MAX_FAILED_LOGINS;
+      if (locked) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { failedLoginCount: 0, lockedUntil: new Date(now + LOGIN_LOCK_MS), updatedAt },
+        });
+      }
+      await logAudit(
+        tx,
+        failedAttempt(
+          locked ? t("loginLocked", { minutes: LOGIN_LOCK_MINUTES }) : t("loginFailedPassword"),
+        ),
+      );
+    });
     return invalidCredentials;
   }
 
-  await db.user.update({
-    where: { id: user.id },
-    data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(now), updatedAt },
+  const token = await db.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(now), updatedAt },
+    });
+    const session = await createSession(user.id, request.ip, request.userAgent, { client: tx });
+    await logAudit(tx, {
+      ...request,
+      actor: { id: user.id, login },
+      action: "LOGIN",
+      entity: "Session",
+      entityId: session.id,
+      summary: t("login"),
+    });
+    return session.token;
   });
 
-  const { ip, userAgent } = await getClientInfo();
-  await setSessionCookie(await createSession(user.id, ip, userAgent));
-
+  await setSessionCookie(token);
   redirect(HOME_PATH);
 }
 
 export async function signOut(): Promise<void> {
   const current = await getCurrentSession();
-  if (current) await invalidateSession(current.session.id);
+  if (current) {
+    const [t, request] = await Promise.all([getTranslations("audit.summaries"), getClientInfo()]);
+    await db.$transaction(async (tx) => {
+      if (!(await invalidateSession(current.session.id, { client: tx }))) return;
+      await logAudit(tx, {
+        ...request,
+        actor: current.user,
+        action: "LOGOUT",
+        entity: "Session",
+        entityId: current.session.id,
+        summary: t("logout"),
+      });
+    });
+  }
 
   await deleteSessionCookie();
   redirect(LOGIN_PATH);

@@ -1,20 +1,48 @@
-import { ConstructionIcon } from "lucide-react";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-import { StatusMessage } from "@/components/status-message";
+import { resetFiltersHref } from "@/components/data-table/search-params";
+import { Button } from "@/components/ui/button";
+import { AuditTable } from "@/features/audit/components/audit-table";
+import { AuditToolbar } from "@/features/audit/components/audit-toolbar";
+import { hasAuditFilters, parseAuditListParams } from "@/features/audit/list-params";
+import { listAuditLogs } from "@/features/audit/queries";
 import { requirePagePermission } from "@/lib/auth/current-user";
 
-// The journal itself comes with the audit step; until then the route only enforces who may open it.
-export default async function AuditPage() {
-  await requirePagePermission("audit.read");
-  const t = await getTranslations();
+type AuditPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AuditPage({ searchParams }: AuditPageProps) {
+  const viewer = await requirePagePermission("audit.read");
+  const t = await getTranslations("audit");
+
+  const resolvedSearchParams = await searchParams;
+  const params = parseAuditListParams(resolvedSearchParams);
+  const { rows, rowCount } = await listAuditLogs(viewer, params);
+
+  const emptyState = hasAuditFilters(params) ? (
+    <div className="flex flex-col items-center gap-1">
+      <span>{t("nothingFound")}</span>
+      <Button variant="link" asChild>
+        <Link href={resetFiltersHref("/audit", resolvedSearchParams)}>{t("filters.reset")}</Link>
+      </Button>
+    </div>
+  ) : rowCount === 0 ? (
+    t("empty")
+  ) : undefined;
 
   return (
-    <StatusMessage
-      icon={ConstructionIcon}
-      title={t("audit.title")}
-      description={t("common.sectionInDevelopment")}
-      className="flex-1"
-    />
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-semibold sm:text-2xl">{t("title")}</h1>
+      <AuditToolbar
+        actor={params.actor}
+        actions={params.actions}
+        entity={params.entity}
+        from={params.from}
+        to={params.to}
+      />
+      <AuditTable rows={rows} rowCount={rowCount} state={params.table} emptyState={emptyState} />
+    </div>
   );
 }

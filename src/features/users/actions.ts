@@ -1,16 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
+import { diffEntity, logAudit } from "@/lib/audit";
 import { authorizedAction } from "@/lib/auth/authorized-action";
 import { hashPassword } from "@/lib/auth/password";
 import { invalidateAllUserSessions, invalidateSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
+import { getClientInfo } from "@/lib/request-info";
+import { describeUserAgent } from "@/lib/user-agent";
 
+import { logUserChanges, USER_AUDIT_SELECT, userAuditSnapshot } from "./audit";
 import { createUserSchema, resetPasswordSchema, updateUserSchema, userIdSchema } from "./schemas";
 
 // There is deliberately no delete action: users are only deactivated, so that a login and an
@@ -44,6 +49,12 @@ function toProfileData({
     phone: phone || null,
     comment: comment || null,
   };
+}
+
+/** Called once the input is valid: an invalid request is not worth reading the request for. */
+async function auditContext() {
+  const [t, request] = await Promise.all([getTranslations(), getClientInfo()]);
+  return { t, request };
 }
 
 /**
@@ -98,17 +109,25 @@ export const createUser = authorizedAction(
     if (!parsed.success) return validationFailure(parsed.error);
     const { login, password, ...profile } = parsed.data;
     const data = toProfileData(profile);
+    const passwordHash = await hashPassword(password);
+    const { t, request } = await auditContext();
 
     try {
-      const { id } = await db.user.create({
-        data: {
-          ...data,
-          login,
-          passwordHash: await hashPassword(password),
-          createdById: actor.id,
-          updatedById: actor.id,
-        },
-        select: { id: true },
+      const id = await db.$transaction(async (tx) => {
+        const { id, ...created } = await tx.user.create({
+          data: { ...data, login, passwordHash, createdById: actor.id, updatedById: actor.id },
+          select: { id: true, ...USER_AUDIT_SELECT },
+        });
+        await logAudit(tx, {
+          ...request,
+          actor,
+          action: "CREATE",
+          entity: "User",
+          entityId: id,
+          summary: t("audit.summaries.userCreated", { login }),
+          changes: diffEntity(null, userAuditSnapshot(created, t)),
+        });
+        return id;
       });
 
       revalidatePath(USERS_PATH, "layout");
@@ -131,14 +150,12 @@ export const updateUser = authorizedAction(
     const data = toProfileData(parsed.data);
 
     if (!data.isActive && id === actor.id) return cannotDeactivateSelf;
+    const { t, request } = await auditContext();
 
     try {
       const result = await db.$transaction(async (tx): Promise<ActionResult> => {
         const adminIds = await lockActiveAdminIds(tx);
-        const target = await tx.user.findUnique({
-          where: { id },
-          select: { role: true, isActive: true },
-        });
+        const target = await tx.user.findUnique({ where: { id }, select: USER_AUDIT_SELECT });
         if (!target) return notFound;
         if (data.role !== target.role) requirePermission(actor, "users.changeRole");
         if (data.isActive !== target.isActive) requirePermission(actor, "users.changeStatus");
@@ -146,10 +163,22 @@ export const updateUser = authorizedAction(
           return lastAdmin;
         }
 
+        const changes = diffEntity(
+          userAuditSnapshot(target, t),
+          userAuditSnapshot({ ...target, ...data }, t),
+        );
+        // An unchanged form writes nothing, so "Изменено" keeps pointing at the last real change.
+        if (changes.length === 0) return { ok: true };
+
         await tx.user.update({ where: { id }, data: { ...data, updatedById: actor.id } });
         if (target.isActive && !data.isActive) {
           await invalidateAllUserSessions(id, { client: tx });
         }
+        await logUserChanges(
+          tx,
+          { actor, request, t, user: { id, login: target.login, isActive: data.isActive } },
+          changes,
+        );
         return { ok: true };
       });
 
@@ -175,9 +204,19 @@ export const resetPassword = authorizedAction(
     if (!parsed.success) return validationFailure(parsed.error);
 
     const passwordHash = await hashPassword(parsed.data.password);
+    const { t, request } = await auditContext();
     await db.$transaction(async (tx) => {
       await tx.user.update({ where: { id }, data: { passwordHash, updatedById: actor.id } });
       await invalidateAllUserSessions(id, { client: tx });
+      // Only the fact is logged: no value of the password or its hash is written anywhere.
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "PASSWORD_CHANGE",
+        entity: "User",
+        entityId: id,
+        summary: t("audit.summaries.passwordReset", { login: target.login }),
+      });
     });
 
     revalidatePath(USERS_PATH, "layout");
@@ -193,16 +232,22 @@ export const toggleStatus = authorizedAction(
     if (!z.boolean().safeParse(isActive).success) return invalidRequest;
 
     if (!isActive && id === actor.id) return cannotDeactivateSelf;
+    const { t, request } = await auditContext();
 
     const result = await db.$transaction(async (tx): Promise<ActionResult> => {
       const adminIds = await lockActiveAdminIds(tx);
-      const target = await tx.user.findUnique({ where: { id }, select: { isActive: true } });
+      const target = await tx.user.findUnique({ where: { id }, select: USER_AUDIT_SELECT });
       if (!target) return notFound;
       if (target.isActive === isActive) return { ok: true };
       if (!isActive && isLastActiveAdmin(adminIds, id)) return lastAdmin;
 
       await tx.user.update({ where: { id }, data: { isActive, updatedById: actor.id } });
       if (!isActive) await invalidateAllUserSessions(id, { client: tx });
+      await logUserChanges(
+        tx,
+        { actor, request, t, user: { id, login: target.login, isActive } },
+        diffEntity(userAuditSnapshot(target, t), userAuditSnapshot({ ...target, isActive }, t)),
+      );
       return { ok: true };
     });
 
@@ -213,12 +258,34 @@ export const toggleStatus = authorizedAction(
 
 export const revokeUserSession = authorizedAction(
   "users.sessions.revoke",
-  async (_actor, userId: string, sessionId: string): Promise<ActionResult> => {
+  async (actor, userId: string, sessionId: string): Promise<ActionResult> => {
     if (!userIdSchema.safeParse(userId).success || !z.cuid().safeParse(sessionId).success) {
       return notFound;
     }
+    const { t, request } = await auditContext();
 
-    await invalidateSession(sessionId);
+    await db.$transaction(async (tx) => {
+      const session = await tx.session.findFirst({
+        where: { id: sessionId, userId },
+        select: { userAgent: true, user: { select: { login: true } } },
+      });
+      if (!session || !(await invalidateSession(sessionId, { client: tx }))) return;
+
+      // The entry's own browser is the administrator's, so the ended session is named here. Not by
+      // its IP address: the summary is also read in the card history by those who may not see it.
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "SESSION_REVOKE",
+        entity: "User",
+        entityId: userId,
+        summary: t("audit.summaries.sessionRevoked", {
+          login: session.user.login,
+          browser: describeUserAgent(session.userAgent) ?? t("users.sessions.unknownBrowser"),
+        }),
+      });
+    });
+
     revalidatePath(`${USERS_PATH}/${userId}`);
     return { ok: true };
   },
@@ -226,10 +293,24 @@ export const revokeUserSession = authorizedAction(
 
 export const revokeAllUserSessions = authorizedAction(
   "users.sessions.revoke",
-  async (_actor, userId: string): Promise<ActionResult> => {
+  async (actor, userId: string): Promise<ActionResult> => {
     if (!userIdSchema.safeParse(userId).success) return notFound;
+    const { t, request } = await auditContext();
 
-    await invalidateAllUserSessions(userId);
+    await db.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { login: true } });
+      if (!user || (await invalidateAllUserSessions(userId, { client: tx })) === 0) return;
+
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "SESSION_REVOKE",
+        entity: "User",
+        entityId: userId,
+        summary: t("audit.summaries.allSessionsRevoked", { login: user.login }),
+      });
+    });
+
     revalidatePath(`${USERS_PATH}/${userId}`);
     return { ok: true };
   },

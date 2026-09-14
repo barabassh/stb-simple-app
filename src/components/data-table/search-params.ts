@@ -8,6 +8,9 @@ export const TABLE_SEARCH_PARAMS = {
   order: "order",
 } as const;
 
+/** The open tab of a card with tabs, see UrlTabs. */
+export const TAB_SEARCH_PARAM = "tab";
+
 export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 export const DEFAULT_PAGE_SIZE: PageSize = 25;
@@ -40,6 +43,21 @@ function parsePage(value: string | undefined): number {
 
 function parsePageSize(value: string | undefined): PageSize {
   return PAGE_SIZE_OPTIONS.find((size) => String(size) === value) ?? DEFAULT_PAGE_SIZE;
+}
+
+/** Link that drops search, filters and page, keeping how the table is sorted and paged. */
+export function resetFiltersHref(pathname: string, searchParams: SearchParamsInput): string {
+  const params = new URLSearchParams();
+  for (const key of [
+    TABLE_SEARCH_PARAMS.sort,
+    TABLE_SEARCH_PARAMS.order,
+    TABLE_SEARCH_PARAMS.pageSize,
+  ]) {
+    const value = readParam(searchParams, key);
+    if (value) params.set(key, value);
+  }
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
 }
 
 /**

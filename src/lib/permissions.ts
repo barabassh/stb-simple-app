@@ -4,6 +4,7 @@ import type { SessionUser } from "@/lib/auth/session";
 // Permission codes from docs/ПРАВА-ДОСТУПА.md, section 2.
 export type Permission =
   | "users.read"
+  | "users.history.read"
   | "users.create"
   | "users.update"
   | "users.changeRole"
@@ -22,7 +23,7 @@ type Grant = Permission | `${string}.*`;
 
 export const PERMISSIONS = {
   ADMIN: ["users.*", "audit.*", "profile.*"],
-  MANAGER: ["users.read", "users.export", "profile.*"],
+  MANAGER: ["users.read", "users.history.read", "users.export", "profile.*"],
   EMPLOYEE: ["profile.*"],
   CONTRACTOR: ["profile.*"],
 } as const satisfies Record<Role, readonly Grant[]>;

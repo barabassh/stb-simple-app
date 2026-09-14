@@ -1,8 +1,13 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { readParam, TAB_SEARCH_PARAM } from "@/components/data-table/search-params";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UrlTabs } from "@/components/url-tabs";
+import { AuditTable } from "@/features/audit/components/audit-table";
+import { RecordStamps } from "@/features/audit/components/record-stamps";
+import { parseAuditTableState } from "@/features/audit/list-params";
+import { listEntityAuditLogs } from "@/features/audit/queries";
 import { BackLink } from "@/features/users/components/back-link";
 import { UserCardActions } from "@/features/users/components/user-card-actions";
 import { UserProfileDetails } from "@/features/users/components/user-profile-details";
@@ -14,23 +19,73 @@ import { can } from "@/lib/permissions";
 
 type UserPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function UserPage({ params }: UserPageProps) {
+const PROFILE_TAB = "profile";
+
+export default async function UserPage({ params, searchParams }: UserPageProps) {
   const viewer = await requirePagePermission("users.read");
-  const { id } = await params;
+  const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
 
   const user = await getUser(viewer, id);
   if (!user) notFound();
 
-  const [sessions, t] = await Promise.all([
+  const historyTable = parseAuditTableState(resolvedSearchParams);
+  const [sessions, history, t] = await Promise.all([
     can(viewer, "users.sessions.read") ? listActiveUserSessions(viewer, id) : null,
-    getTranslations("users"),
+    can(viewer, "users.history.read")
+      ? listEntityAuditLogs(viewer, "User", id, historyTable)
+      : null,
+    getTranslations(),
   ]);
+
+  const tabs = [
+    {
+      value: PROFILE_TAB,
+      label: t("users.card.tabs.profile"),
+      content: <UserProfileDetails user={user} />,
+    },
+    ...(sessions
+      ? [
+          {
+            value: "sessions",
+            label: (
+              <>
+                {t("users.card.tabs.sessions")}
+                <Badge variant="secondary">{sessions.length}</Badge>
+              </>
+            ),
+            content: <UserSessions userId={user.id} sessions={sessions} viewer={viewer} />,
+          },
+        ]
+      : []),
+    ...(history
+      ? [
+          {
+            value: "history",
+            label: t("users.card.tabs.history"),
+            content: (
+              <AuditTable
+                rows={history.rows}
+                rowCount={history.rowCount}
+                state={historyTable}
+                emptyState={t("audit.historyEmpty")}
+                showEntity={false}
+                showRequestInfo={can(viewer, "audit.read")}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  const requestedTab = readParam(resolvedSearchParams, TAB_SEARCH_PARAM);
+  const tab = tabs.find(({ value }) => value === requestedTab)?.value ?? PROFILE_TAB;
 
   return (
     <div className="flex flex-col gap-4">
-      <BackLink href="/users" label={t("form.backToList")} />
+      <BackLink href="/users" label={t("users.form.backToList")} />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
@@ -39,8 +94,12 @@ export default async function UserPage({ params }: UserPageProps) {
             <UserStatusBadge isActive={user.isActive} />
           </h1>
           <p className="text-muted-foreground">
-            {user.login} · {t(`roles.${user.role}`)}
+            {user.login} · {t(`users.roles.${user.role}`)}
           </p>
+          <RecordStamps
+            created={{ at: user.createdAt, by: user.createdBy }}
+            updated={{ at: user.updatedAt, by: user.updatedBy }}
+          />
         </div>
         <UserCardActions
           user={{
@@ -53,25 +112,7 @@ export default async function UserPage({ params }: UserPageProps) {
         />
       </div>
 
-      <Tabs defaultValue="profile">
-        <TabsList>
-          <TabsTrigger value="profile">{t("card.tabs.profile")}</TabsTrigger>
-          {sessions && (
-            <TabsTrigger value="sessions">
-              {t("card.tabs.sessions")}
-              <Badge variant="secondary">{sessions.length}</Badge>
-            </TabsTrigger>
-          )}
-        </TabsList>
-        <TabsContent value="profile">
-          <UserProfileDetails user={user} />
-        </TabsContent>
-        {sessions && (
-          <TabsContent value="sessions">
-            <UserSessions userId={user.id} sessions={sessions} viewer={viewer} />
-          </TabsContent>
-        )}
-      </Tabs>
+      <UrlTabs value={tab} defaultValue={PROFILE_TAB} tabs={tabs} />
     </div>
   );
 }

@@ -8,6 +8,7 @@ const EVERY_ROLE = Object.values(Role);
 // docs/ПРАВА-ДОСТУПА.md, section 2: the roles that hold each permission.
 const MATRIX: Record<Permission, Role[]> = {
   "users.read": ["ADMIN", "MANAGER"],
+  "users.history.read": ["ADMIN", "MANAGER"],
   "users.create": ["ADMIN"],
   "users.update": ["ADMIN"],
   "users.changeRole": ["ADMIN"],

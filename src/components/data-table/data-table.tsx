@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  createColumnHelper,
   useTable,
   type PaginationState,
   type RowData,
@@ -9,10 +10,10 @@ import {
   type TableOptions,
   type Updater,
 } from "@tanstack/react-table";
-import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, ChevronsUpDownIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo, useTransition } from "react";
+import { Fragment, useMemo, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +41,11 @@ export type DataTableProps<TData extends RowData> = {
   /** Replaces the default text when the page has no rows, e.g. "nothing found" with a reset link. */
   emptyState?: React.ReactNode;
   getRowId?: (row: TData) => string;
+  /** Adds a toggle to every row that opens this content in a full-width row beneath it. */
+  renderRowDetails?: (row: TData) => React.ReactNode;
 };
+
+const DETAILS_COLUMN_ID = "details";
 
 function resolve<T>(updater: Updater<T>, current: T): T {
   return updater instanceof Function ? updater(current) : updater;
@@ -53,6 +58,7 @@ export function DataTable<TData extends RowData>({
   state,
   emptyState,
   getRowId,
+  renderRowDetails,
 }: DataTableProps<TData>) {
   const t = useTranslations("dataTable");
   const router = useRouter();
@@ -72,6 +78,31 @@ export function DataTable<TData extends RowData>({
     [state.page, state.pageSize],
   );
 
+  // Depends on whether details exist, not on the render function, which is usually an inline arrow.
+  const hasDetails = renderRowDetails !== undefined;
+  const tableColumns = useMemo(() => {
+    if (!hasDetails) return columns;
+    const detailsColumn = createColumnHelper<DataTableFeatures, TData>().display({
+      id: DETAILS_COLUMN_ID,
+      header: () => <span className="sr-only">{t("details")}</span>,
+      cell: ({ row }) => {
+        const expanded = row.getIsExpanded();
+        return (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-expanded={expanded}
+            aria-label={t(expanded ? "hideDetails" : "showDetails")}
+            onClick={() => row.toggleExpanded()}
+          >
+            <ChevronRightIcon className={cn("transition-transform", expanded && "rotate-90")} />
+          </Button>
+        );
+      },
+    });
+    return [detailsColumn, ...columns];
+  }, [columns, hasDetails, t]);
+
   function navigate(changes: Record<string, string | null>) {
     // Search and filter parameters belong to the page, so they are carried over untouched.
     const params = new URLSearchParams(searchParams);
@@ -88,7 +119,7 @@ export function DataTable<TData extends RowData>({
   const table = useTable({
     features: dataTableFeatures,
     data,
-    columns,
+    columns: tableColumns,
     getRowId,
     rowCount,
     state: { sorting, pagination },
@@ -98,6 +129,7 @@ export function DataTable<TData extends RowData>({
     // With a default sort, removing the sort brings the same column back sorted and the header
     // would look stuck, so a sorted column only switches direction.
     enableSortingRemoval: false,
+    getRowCanExpand: () => hasDetails,
     onSortingChange: (updater) => {
       const [next] = resolve(updater, sorting);
       navigate({
@@ -118,6 +150,7 @@ export function DataTable<TData extends RowData>({
   });
 
   const rows = table.getRowModel().rows;
+  const columnCount = table.getAllLeafColumns().length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -139,6 +172,7 @@ export function DataTable<TData extends RowData>({
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
+                      className={cn(header.column.id === DETAILS_COLUMN_ID && "w-0")}
                       aria-sort={
                         sorted === "asc"
                           ? "ascending"
@@ -169,18 +203,27 @@ export function DataTable<TData extends RowData>({
           <TableBody>
             {rows.length > 0 ? (
               rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  ))}
-                </TableRow>
+                <Fragment key={row.id}>
+                  <TableRow>
+                    {row.getAllCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        <table.FlexRender cell={cell} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {renderRowDetails && row.getIsExpanded() && (
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableCell colSpan={columnCount} className="whitespace-normal">
+                        {renderRowDetails(row.original)}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               ))
             ) : (
               <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={table.getAllLeafColumns().length}
+                  colSpan={columnCount}
                   className="h-32 text-center whitespace-normal text-muted-foreground"
                 >
                   {emptyState ?? t("empty")}
