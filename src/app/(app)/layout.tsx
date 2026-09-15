@@ -18,8 +18,15 @@ export default async function AppLayout({ children }: Readonly<{ children: React
           <AppSidebar user={user} />
           <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6">{children}</main>
         </div>
-        {/* The app has no dark theme; without a fixed theme the toasts would follow the OS setting. */}
-        <Toaster theme="light" position="top-right" containerAriaLabel={t("notifications")} />
+        {/* The app has no dark theme; without a fixed theme the toasts would follow the OS setting.
+            The top offset starts below the sticky header (h-14), which toasts would otherwise cover. */}
+        <Toaster
+          theme="light"
+          position="top-right"
+          offset={{ top: "calc(3.5rem + 1rem)" }}
+          mobileOffset={{ top: "calc(3.5rem + 0.5rem)" }}
+          containerAriaLabel={t("notifications")}
+        />
       </div>
     </TooltipProvider>
   );
