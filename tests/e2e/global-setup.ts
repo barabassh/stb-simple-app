@@ -71,6 +71,8 @@ async function openPages(baseURL: string, databaseUrl: string): Promise<void> {
 export default async function globalSetup(config: FullConfig) {
   const databaseUrl = testDatabaseUrl("e2e");
   await prepareTestDatabase(databaseUrl);
+  // A run stopped during the warm-up leaves its user behind and would fail every later warm-up.
+  await emptyTestDatabase(databaseUrl);
 
   const { baseURL } = config.projects[0].use;
   if (baseURL) await openPages(baseURL, databaseUrl);

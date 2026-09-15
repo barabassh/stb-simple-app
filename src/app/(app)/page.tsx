@@ -39,7 +39,9 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold sm:text-2xl">{t("greeting", { name: user.fullName })}</h1>
+        <h1 className="text-xl font-semibold sm:text-2xl">
+          {t("greeting", { name: user.fullName })}
+        </h1>
         <p className="text-muted-foreground">{t("subtitle")}</p>
       </div>
 

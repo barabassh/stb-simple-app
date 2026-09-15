@@ -6,6 +6,8 @@ test-results
 playwright-report
 src/generated
 package-lock.json
+# Worktrees of background Claude sessions, with their own generated files.
+.claude
 # Human-written documentation: keep authors' formatting.
 docs
 CLAUDE.md
