@@ -86,6 +86,10 @@
 
 Перед сдачей задачи должны проходить `npm run lint`, `npm run typecheck` и `npm test`.
 
+В Windows PowerShell команды `npm` и `npx` могут не запускаться из-за политики выполнения
+скриптов — тогда пишите `npm.cmd` и `npx.cmd`, например `npm.cmd test`
+(подробнее — в «Частых проблемах»).
+
 ## Тесты
 
 | Набор                 | Где          | Что проверяет                                                                                                      |
@@ -200,6 +204,11 @@ npx playwright test --project webkit tests/e2e/login.spec.ts
 
 ## Частые проблемы
 
+- **`npm.ps1 cannot be loaded because running scripts is disabled on this system`** — Windows PowerShell
+  запрещает скрипты `.ps1`, а `npm` и `npx` запускаются через них. Вызывайте `npm.cmd` и `npx.cmd`
+  (`npm.cmd test`, `npm.cmd run test:e2e`, `npx.cmd prisma migrate dev`) — они работают без смены политики.
+  Чтобы обычный `npm` заработал всегда, разрешите локальные скрипты для своей учётной записи:
+  `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. В Git Bash и терминале VS Code с bash проблемы нет.
 - **`Cannot find module '@/generated/prisma/client'`** — клиент не сгенерирован:
   выполните `npx prisma generate`.
 - **Prisma не подключается к базе** — проверьте, что контейнер запущен
