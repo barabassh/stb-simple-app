@@ -75,9 +75,10 @@
 | `npm run dev`                             | сервер разработки на http://localhost:3000 |
 | `npm run build` / `npm start`             | продакшн-сборка и её запуск                |
 | `npm run lint`                            | ESLint                                     |
-| `npm run typecheck`                       | проверка типов TypeScript                  |
-| `npm test`                                | модульные тесты (Vitest), `tests/unit`     |
-| `npm run test:e2e`                        | сквозные тесты (Playwright), `tests/e2e`   |
+| `npm run typecheck`                       | типы маршрутов Next.js и проверка типов    |
+| `npm test`                                | модульные тесты и тесты с базой (Vitest)   |
+| `npm run test:e2e`                        | сквозные тесты (Playwright)                |
+| `npm run test:db:init`                    | пересоздать тестовые базы                  |
 | `npm run format` / `npm run format:check` | форматирование Prettier                    |
 | `npm run db:seed`                         | создать администратора `admin`             |
 | `npm run db:studio`                       | Prisma Studio — просмотр данных в браузере |
@@ -85,13 +86,75 @@
 
 Перед сдачей задачи должны проходить `npm run lint`, `npm run typecheck` и `npm test`.
 
-Перед первым запуском сквозных тестов скачайте браузер (один раз на машину):
+## Тесты
+
+| Набор                 | Где          | Что проверяет                                                                                                      |
+| --------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Модульные (Vitest)    | `tests/unit` | чистые функции: матрица прав, `diffEntity`, схемы Zod, форматы, файлы выгрузки                                     |
+| С базой (Vitest)      | `tests/db`   | server actions и выборки на настоящей базе: права, последний администратор, журнал аудита, вход, выгрузка          |
+| Сквозные (Playwright) | `tests/e2e`  | вход, создание пользователя, ограничения менеджера, деактивация — в Chromium и WebKit, вход ещё и на ширине 360 px |
+
+В тестах с базой приложение работает с настоящей PostgreSQL. Подменяется только то, что даёт
+запросу Next.js: cookie и заголовки, переводы (берутся из настоящего `messages/ru.json`)
+и кеш страниц.
+
+### Тестовые базы
+
+Тесты не обращаются к базе разработчика. На том же сервере PostgreSQL используются отдельные
+базы — имя из `DATABASE_URL` с суффиксом:
+
+- `constructionprojects_test` — Vitest;
+- `constructionprojects_e2e_test` — Playwright.
+
+Базы разные, чтобы `npm test` и `npm run test:e2e` можно было запускать одновременно.
+Прогон сам создаёт базу, если её нет, и применяет недостающие миграции. Vitest очищает все
+таблицы перед каждым тестом с базой, поэтому такие файлы выполняются по очереди. Playwright
+очищает базу в начале прогона, а каждый тест создаёт своих пользователей с уникальными
+логинами — тесты не зависят ни от порядка, ни от данных прошлого запуска. Очистка отказывается
+работать с базой, имя которой не оканчивается на `_test`.
+
+Пересоздать обе тестовые базы с нуля (например, если база сломана вручную):
 
 ```bash
-npx playwright install chromium
+npm run test:db:init
 ```
 
-`npm run test:e2e` сам запускает `npm run dev`, если сервер ещё не запущен.
+### Запуск
+
+1. Запустите контейнер базы: `docker compose up -d db` — он нужен и для `npm test`.
+2. Один раз на машину скачайте браузеры Playwright:
+
+   ```bash
+   npx playwright install chromium webkit
+   ```
+
+3. Запустите наборы:
+
+   ```bash
+   npm test
+   ```
+
+   ```bash
+   npm run test:e2e
+   ```
+
+`npm run test:e2e` поднимает собственный dev-сервер на http://localhost:3100 с тестовой базой
+и каталогом сборки `.next-e2e`, поэтому не мешает запущенному `npm run dev`. Порт 3100 должен
+быть свободен: чужой сервер на нём не переиспользуется. Первый прогон дольше — dev-сервер
+компилирует страницы.
+
+Выборочный запуск:
+
+```bash
+npx vitest run --configLoader runner --project db tests/db/sign-in.test.ts
+```
+
+```bash
+npx playwright test --project webkit tests/e2e/login.spec.ts
+```
+
+Если сквозной тест упал, трасса лежит в `test-results/`; открыть её —
+`npx playwright show-trace <путь к trace.zip>`.
 
 ## Переменные окружения
 
@@ -129,8 +192,10 @@ npx playwright install chromium
 │   ├── middleware.ts      # без cookie сессии — перенаправление на /login
 │   └── generated/prisma/  # сгенерированный клиент Prisma, не в git
 └── tests/
-    ├── unit/              # Vitest
-    └── e2e/               # Playwright
+    ├── unit/              # Vitest: чистые функции
+    ├── db/                # Vitest: actions и выборки на тестовой базе
+    ├── e2e/               # Playwright
+    └── support/           # тестовые базы: имена, миграции, очистка
 ```
 
 ## Частые проблемы
