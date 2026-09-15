@@ -36,7 +36,7 @@ describe("parseAuditListParams", () => {
 
   it("ignores an unknown entity, an invalid date and a column that is not sortable", () => {
     const params = parseAuditListParams({
-      entity: "AuditLog",
+      entity: "Project",
       from: "2026-02-30",
       to: "yesterday",
       sort: "summary",

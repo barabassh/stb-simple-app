@@ -116,12 +116,15 @@ npx playwright install chromium
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/        # страница входа
-│   │   └── (app)/         # защищённая зона
+│   │   ├── (app)/         # защищённая зона
+│   │   ├── print/         # печатное представление отчётов
+│   │   └── api/export/    # выгрузка в Excel и PDF
 │   ├── features/auth/     # server actions входа/выхода, схемы Zod, формы
 │   ├── components/ui/     # компоненты shadcn/ui
 │   ├── i18n/request.ts    # next-intl: локаль ru без префикса в URL
 │   ├── lib/auth/          # сессии, текущий пользователь, хэширование паролей (Argon2id)
 │   ├── lib/db.ts          # клиент Prisma
+│   ├── lib/export/        # выгрузка в Excel, PDF и печать из описания колонок
 │   ├── lib/format.ts      # даты, время и числа (Europe/Kyiv)
 │   ├── middleware.ts      # без cookie сессии — перенаправление на /login
 │   └── generated/prisma/  # сгенерированный клиент Prisma, не в git

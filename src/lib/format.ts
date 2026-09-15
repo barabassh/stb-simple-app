@@ -42,17 +42,20 @@ export function formatDateTime(value: DateInput | null | undefined): string {
   return `${day}.${month}.${year} ${hour}:${minute}`;
 }
 
+/**
+ * The Europe/Kyiv wall clock of an instant, to the minute, held in the UTC fields of a Date. For
+ * files that store a date without a time zone, such as a spreadsheet cell, which would show UTC.
+ */
+export function toDisplayWallClock(value: DateInput): Date {
+  const { day, month, year, hour, minute } = toParts(value);
+  return new Date(
+    Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)),
+  );
+}
+
 /** Difference between the wall clock in Europe/Kyiv and UTC at the given instant, in ms. */
 function displayOffsetAt(instant: number): number {
-  const { day, month, year, hour, minute } = toParts(instant);
-  const wallClock = Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-  );
-  return wallClock - Math.floor(instant / 60_000) * 60_000;
+  return toDisplayWallClock(instant).getTime() - Math.floor(instant / 60_000) * 60_000;
 }
 
 function startOfDisplayDay(year: number, monthIndex: number, day: number): Date {
@@ -79,6 +82,19 @@ export function displayDayRange(value: string): { start: Date; end: Date } | nul
     start: startOfDisplayDay(year, monthIndex, day),
     end: startOfDisplayDay(year, monthIndex, day + 1),
   };
+}
+
+/**
+ * The last day of a period of one calendar month that starts on `start` (`yyyy-MM-dd`): the day
+ * before the same date of the next month, or the last day of the next month when it has no such
+ * date (15.08 → 14.09, 01.08 → 31.08, 31.01 → 28.02).
+ */
+export function monthPeriodEnd(start: string): string {
+  const [year, month, day] = start.split("-").map(Number);
+  // Date.UTC counts months from zero, so `month` already stands for the next month.
+  const daysInNextMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const end = Date.UTC(year, month, Math.min(day - 1, daysInNextMonth));
+  return new Date(end).toISOString().slice(0, 10);
 }
 
 /** "Иванов Иван Иванович" → "Иванов И. И.": the first name in full, the rest as initials. */

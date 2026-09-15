@@ -67,6 +67,23 @@
     "showDetails": "Показать подробности",
     "hideDetails": "Скрыть подробности"
   },
+  "export": {
+    "xlsx": "Экспорт в Excel",
+    "pdf": "Экспорт в PDF",
+    "print": "Печать",
+    "formats": {
+      "xlsx": "Excel",
+      "pdf": "PDF",
+      "print": "печать"
+    },
+    "generatedAt": "Дата выгрузки: {date}",
+    "author": "Автор: {name} ({login})",
+    "page": "Страница {page} из {pages}",
+    "empty": "Нет данных",
+    "printNow": "Напечатать",
+    "back": "Вернуться к списку",
+    "unavailable": "Выгрузка недоступна"
+  },
   "users": {
     "roles": {
       "ADMIN": "Администратор",
@@ -94,6 +111,9 @@
       "empty": "Пользователей ещё нет",
       "nothingFound": "По заданным фильтрам ничего не найдено",
       "rowActions": "Действия: {name}"
+    },
+    "export": {
+      "title": "Реестр пользователей"
     },
     "columns": {
       "login": "Логин",
@@ -243,7 +263,8 @@
     },
     "entities": {
       "User": "Пользователь",
-      "Session": "Сессия"
+      "Session": "Сессия",
+      "AuditLog": "Журнал аудита"
     },
     "fields": {
       "User": {
@@ -277,6 +298,14 @@
     "empty": "Записей в журнале ещё нет",
     "nothingFound": "По заданным фильтрам ничего не найдено",
     "historyEmpty": "Изменений ещё не было",
+    "export": {
+      "title": "Журнал аудита",
+      "actorName": "ФИО автора",
+      "change": "{field}: {before} → {after}",
+      "periodRequired": "Чтобы выгрузить журнал, укажите период в полях «С даты» и «По дату» — не длиннее одного месяца",
+      "periodReversed": "Дата начала периода позже даты его окончания",
+      "periodTooLong": "Журнал выгружается не более чем за месяц: для периода с {from} выберите дату окончания не позже {latest}"
+    },
     "details": {
       "changes": "Изменения",
       "notSet": "не задано",
@@ -306,7 +335,8 @@
       "passwordReset": "Сброшен пароль пользователя {login}, его сессии завершены",
       "sessionRevoked": "Завершена сессия пользователя {login}: {browser}",
       "allSessionsRevoked": "Завершены все сессии пользователя {login}",
-      "otherSessionsRevoked": "Завершены все сессии пользователя {login}, кроме текущей"
+      "otherSessionsRevoked": "Завершены все сессии пользователя {login}, кроме текущей",
+      "exported": "Выгрузка «{title}» ({format}), строк: {count}"
     }
   },
   "profile": {

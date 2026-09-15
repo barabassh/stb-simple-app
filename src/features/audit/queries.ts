@@ -7,6 +7,7 @@ import { displayDayRange } from "@/lib/format";
 import { can, requirePermission, type Permission } from "@/lib/permissions";
 
 import type { AuditListParams, AuditSortColumn } from "./list-params";
+import { auditExportPeriodSchema } from "./schemas";
 
 // Only reads: the log has no path in the application that changes or deletes an entry.
 
@@ -32,6 +33,7 @@ export type AuditLogItem = ReturnType<typeof toListItem>;
 const HISTORY_PERMISSION: Record<AuditEntity, Permission> = {
   User: "users.history.read",
   Session: "audit.read",
+  AuditLog: "audit.read",
 };
 
 function toListItem(
@@ -47,19 +49,24 @@ function toListItem(
   };
 }
 
+function auditLogsOrderBy(
+  table: TableState<AuditSortColumn>,
+): Prisma.AuditLogOrderByWithRelationInput[] {
+  const order = table.sort?.order ?? "desc";
+  // Entries of one transaction share the same time; the id keeps their order and paging stable.
+  return [{ at: order }, { id: order }];
+}
+
 async function findAuditLogs(
   where: Prisma.AuditLogWhereInput,
   table: TableState<AuditSortColumn>,
   withRequestInfo: boolean,
 ): Promise<{ rows: AuditLogItem[]; rowCount: number }> {
-  const order = table.sort?.order ?? "desc";
-
   const [records, rowCount] = await Promise.all([
     db.auditLog.findMany({
       where,
       select: listItemSelect,
-      // Entries of one transaction share the same time; the id keeps their order and paging stable.
-      orderBy: [{ at: order }, { id: order }],
+      orderBy: auditLogsOrderBy(table),
       skip: (table.page - 1) * table.pageSize,
       take: table.pageSize,
     }),
@@ -69,16 +76,17 @@ async function findAuditLogs(
   return { rows: records.map((record) => toListItem(record, withRequestInfo)), rowCount };
 }
 
-export async function listAuditLogs(
-  actor: SessionUser,
-  { actor: author, actions, entity, from, to, table }: AuditListParams,
-) {
-  requirePermission(actor, "audit.read");
-
+function auditLogsWhere({
+  actor: author,
+  actions,
+  entity,
+  from,
+  to,
+}: AuditListParams): Prisma.AuditLogWhereInput {
   const fromDay = displayDayRange(from);
   const toDay = displayDayRange(to);
 
-  const where: Prisma.AuditLogWhereInput = {
+  return {
     ...(author
       ? {
           OR: [
@@ -98,8 +106,32 @@ export async function listAuditLogs(
         }
       : {}),
   };
+}
 
-  return findAuditLogs(where, table, true);
+export async function listAuditLogs(actor: SessionUser, params: AuditListParams) {
+  requirePermission(actor, "audit.read");
+
+  return findAuditLogs(auditLogsWhere(params), params.table, true);
+}
+
+/** Every entry the journal shows with these parameters, in its order, on all of its pages. */
+export async function listAuditLogsForExport(
+  actor: SessionUser,
+  params: AuditListParams,
+): Promise<AuditLogItem[]> {
+  requirePermission(actor, "audit.export");
+  // The buttons, the route and the print view refuse a longer period with a message; this keeps
+  // a caller that forgets to check from reading the whole journal.
+  if (!auditExportPeriodSchema.safeParse(params).success) {
+    throw new Error("The journal is exported for a period of at most one month");
+  }
+
+  const records = await db.auditLog.findMany({
+    where: auditLogsWhere(params),
+    select: listItemSelect,
+    orderBy: auditLogsOrderBy(params.table),
+  });
+  return records.map((record) => toListItem(record, true));
 }
 
 /**

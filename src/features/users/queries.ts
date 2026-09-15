@@ -33,13 +33,8 @@ const ORDER_BY: Record<UserSortColumn, (order: SortOrder) => Prisma.UserOrderByW
     createdAt: (order) => ({ createdAt: order }),
   };
 
-export async function listUsers(
-  actor: SessionUser,
-  { query, roles, status, table }: UsersListParams,
-): Promise<{ rows: UserListItem[]; rowCount: number }> {
-  requirePermission(actor, "users.read");
-
-  const where: Prisma.UserWhereInput = {
+function usersWhere({ query, roles, status }: UsersListParams): Prisma.UserWhereInput {
+  return {
     ...(roles.length > 0 ? { role: { in: roles } } : {}),
     ...(status !== "all" ? { isActive: status === "active" } : {}),
     ...(query
@@ -52,23 +47,46 @@ export async function listUsers(
         }
       : {}),
   };
+}
 
+function usersOrderBy({ sort }: UsersListParams["table"]): Prisma.UserOrderByWithRelationInput[] {
+  // The id tie-breaker keeps rows with equal sort values from moving between pages.
+  return [...(sort ? [ORDER_BY[sort.column](sort.order)] : []), { id: "asc" }];
+}
+
+export async function listUsers(
+  actor: SessionUser,
+  params: UsersListParams,
+): Promise<{ rows: UserListItem[]; rowCount: number }> {
+  requirePermission(actor, "users.read");
+
+  const where = usersWhere(params);
   const [rows, rowCount] = await Promise.all([
     db.user.findMany({
       where,
       select: listItemSelect,
-      // The id tie-breaker keeps rows with equal sort values from moving between pages.
-      orderBy: [
-        ...(table.sort ? [ORDER_BY[table.sort.column](table.sort.order)] : []),
-        { id: "asc" },
-      ],
-      skip: (table.page - 1) * table.pageSize,
-      take: table.pageSize,
+      orderBy: usersOrderBy(params.table),
+      skip: (params.table.page - 1) * params.table.pageSize,
+      take: params.table.pageSize,
     }),
     db.user.count({ where }),
   ]);
 
   return { rows, rowCount };
+}
+
+/** Every user the registry shows with these parameters, in its order, on all of its pages. */
+export async function listUsersForExport(
+  actor: SessionUser,
+  params: UsersListParams,
+): Promise<UserListItem[]> {
+  requirePermission(actor, "users.export");
+
+  return db.user.findMany({
+    where: usersWhere(params),
+    select: listItemSelect,
+    orderBy: usersOrderBy(params.table),
+  });
 }
 
 export async function getUser(actor: SessionUser, id: string) {
