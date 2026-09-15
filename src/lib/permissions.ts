@@ -7,6 +7,7 @@ export type Permission =
   | "users.history.read"
   | "users.create"
   | "users.update"
+  | "users.updateProfile"
   | "users.changeRole"
   | "users.resetPassword"
   | "users.changeStatus"
@@ -23,9 +24,9 @@ type Grant = Permission | `${string}.*`;
 
 export const PERMISSIONS = {
   ADMIN: ["users.*", "audit.*", "profile.*"],
-  MANAGER: ["users.read", "users.history.read", "users.export", "profile.*"],
-  EMPLOYEE: ["profile.*"],
-  CONTRACTOR: ["profile.*"],
+  MANAGER: ["users.read", "users.history.read", "users.updateProfile", "users.export", "profile.*"],
+  EMPLOYEE: ["profile.read", "profile.sessions"],
+  CONTRACTOR: ["profile.read", "profile.sessions"],
 } as const satisfies Record<Role, readonly Grant[]>;
 
 export function can(user: Pick<SessionUser, "role">, permission: Permission): boolean {
@@ -34,6 +35,14 @@ export function can(user: Pick<SessionUser, "role">, permission: Permission): bo
   return grants.some((grant) =>
     grant.endsWith(".*") ? permission.startsWith(grant.slice(0, -1)) : grant === permission,
   );
+}
+
+/**
+ * The permission needed to edit another user: the profile of an administrator is edited only by
+ * those who may edit any account (docs/ПРАВА-ДОСТУПА.md, 3.3).
+ */
+export function userUpdatePermission(target: Pick<SessionUser, "role">): Permission {
+  return target.role === "ADMIN" ? "users.update" : "users.updateProfile";
 }
 
 export class PermissionDeniedError extends Error {

@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { SessionUser } from "@/lib/auth/session";
-import { can } from "@/lib/permissions";
+import { can, userUpdatePermission } from "@/lib/permissions";
 
 import { toggleStatus } from "../actions";
 import { UserActionDialogs, type UserActionTarget, type UserDialog } from "./user-action-dialogs";
@@ -25,7 +25,7 @@ export function UserCardActions({ user, viewer }: UserCardActionsProps) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      {can(viewer, "users.update") && (
+      {can(viewer, userUpdatePermission(user)) && (
         <Button variant="outline" asChild>
           <Link href={`/users/${user.id}/edit`}>
             <PencilIcon aria-hidden />

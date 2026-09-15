@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 
+import type { Role } from "@/generated/prisma/enums";
+
 import { toggleStatus } from "../actions";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
@@ -11,6 +13,7 @@ export type UserActionTarget = {
   id: string;
   login: string;
   fullName: string;
+  role: Role;
   isActive: boolean;
 };
 

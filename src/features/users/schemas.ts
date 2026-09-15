@@ -40,6 +40,10 @@ const profileShape = {
       "users.validation.emailInvalid",
     ),
   phone: z.string().trim().max(32, "users.validation.phoneTooLong"),
+};
+
+const accountShape = {
+  ...profileShape,
   role: z.enum(Role, { error: "users.validation.roleRequired" }),
   isActive: z.boolean(),
   comment: z.string().trim().max(500, "users.validation.commentTooLong"),
@@ -55,10 +59,13 @@ const passwordSameAsLogin = {
 };
 
 export const createUserSchema = z
-  .object({ login: loginField, password: passwordField, ...profileShape })
+  .object({ login: loginField, password: passwordField, ...accountShape })
   .refine(passwordDiffersFromLogin, passwordSameAsLogin);
 
-export const updateUserSchema = z.object(profileShape);
+export const updateUserSchema = z.object(accountShape);
+
+/** The fields edited in one's own profile (docs/ТЗ.md, 4.8). */
+export const profileSchema = z.object(profileShape);
 
 /**
  * The edit form holds the same values as the create form so that one form serves both;
@@ -76,4 +83,5 @@ export const resetPasswordSchema = z
 
 export type CreateUserInput = z.input<typeof createUserSchema>;
 export type UpdateUserInput = z.input<typeof updateUserSchema>;
+export type ProfileInput = z.input<typeof profileSchema>;
 export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;

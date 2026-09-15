@@ -5,8 +5,7 @@
   },
   "common": {
     "loading": "Загрузка…",
-    "notifications": "Уведомления",
-    "sectionInDevelopment": "Раздел находится в разработке."
+    "notifications": "Уведомления"
   },
   "nav": {
     "label": "Разделы приложения",
@@ -167,11 +166,13 @@
       "empty": "Активных сессий нет",
       "startedAt": "Начало",
       "ip": "IP-адрес",
-      "browser": "Браузер",
+      "browser": "Устройство и браузер",
       "lastActiveAt": "Последняя активность",
+      "current": "Текущая",
       "actions": "Действия",
       "revoke": "Завершить сессию",
       "revokeAll": "Завершить все сессии",
+      "revokeOthers": "Завершить все, кроме текущей",
       "unknownBrowser": "Не определён"
     },
     "toasts": {
@@ -181,7 +182,8 @@
       "activated": "Пользователь активирован",
       "passwordReset": "Пароль изменён, сессии пользователя завершены",
       "sessionRevoked": "Сессия завершена",
-      "allSessionsRevoked": "Все сессии пользователя завершены"
+      "allSessionsRevoked": "Все сессии пользователя завершены",
+      "otherSessionsRevoked": "Остальные сессии завершены"
     },
     "errors": {
       "notFound": "Пользователь не найден",
@@ -303,10 +305,14 @@
       "userActivated": "Пользователь {login} активирован",
       "passwordReset": "Сброшен пароль пользователя {login}, его сессии завершены",
       "sessionRevoked": "Завершена сессия пользователя {login}: {browser}",
-      "allSessionsRevoked": "Завершены все сессии пользователя {login}"
+      "allSessionsRevoked": "Завершены все сессии пользователя {login}",
+      "otherSessionsRevoked": "Завершены все сессии пользователя {login}, кроме текущей"
     }
   },
   "profile": {
-    "title": "Профиль"
+    "title": "Профиль",
+    "details": "Личные данные",
+    "roleLocked": "Роль назначает администратор",
+    "sessions": "Активные сессии"
   }
 }

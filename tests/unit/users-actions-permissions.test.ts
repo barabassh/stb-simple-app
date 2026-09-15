@@ -4,15 +4,17 @@ import {
   createUser,
   resetPassword,
   revokeAllUserSessions,
+  revokeOwnSession,
   revokeUserSession,
   toggleStatus,
+  updateOwnProfile,
   updateUser,
 } from "@/features/users/actions";
 import type { Role } from "@/generated/prisma/enums";
-import { requireActionUser } from "@/lib/auth/current-user";
+import { requireActionSession } from "@/lib/auth/current-user";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/auth/current-user", () => ({ requireActionUser: vi.fn() }));
+vi.mock("@/lib/auth/current-user", () => ({ requireActionSession: vi.fn() }));
 vi.mock("@/lib/auth/password", () => ({ hashPassword: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({
   invalidateSession: vi.fn(),
@@ -32,23 +34,28 @@ vi.mock("@/lib/db", () => ({
 
 const USER_ID = "cjld2cjxh0000qzrmn831i7rn";
 const SESSION_ID = "cjld2cyuq0000t3rmniod1foy";
+const CURRENT_SESSION_ID = "cjld2cyuq0001t3rmniod1foy";
 
 function actingAs(role: Role) {
-  vi.mocked(requireActionUser).mockResolvedValue({
-    id: "cjld2cjxh0001qzrmn831i7rn",
-    login: "actor",
-    fullName: "Acting User",
-    role,
+  vi.mocked(requireActionSession).mockResolvedValue({
+    session: { id: CURRENT_SESSION_ID, expiresAt: new Date("2026-09-15T00:00:00Z") },
+    user: { id: "cjld2cjxh0001qzrmn831i7rn", login: "actor", fullName: "Acting User", role },
   });
 }
 
-const ACTIONS = [
+const refused = { ok: false, error: "errors.forbiddenAction" };
+
+const ADMINISTRATOR_ACTIONS = [
   ["createUser", () => createUser({})],
-  ["updateUser", () => updateUser(USER_ID, {})],
   ["resetPassword", () => resetPassword(USER_ID, { password: "short" })],
   ["toggleStatus", () => toggleStatus(USER_ID, false)],
   ["revokeUserSession", () => revokeUserSession(USER_ID, SESSION_ID)],
   ["revokeAllUserSessions", () => revokeAllUserSessions(USER_ID)],
+] as const;
+
+const PROFILE_EDITS = [
+  ["updateUser", () => updateUser(USER_ID, {})],
+  ["updateOwnProfile", () => updateOwnProfile({})],
 ] as const;
 
 beforeEach(() => {
@@ -56,15 +63,23 @@ beforeEach(() => {
 });
 
 describe.each<Role>(["MANAGER", "EMPLOYEE", "CONTRACTOR"])("users actions called by %s", (role) => {
-  it.each(ACTIONS)("%s is refused before validation", async (_, action) => {
+  it.each(ADMINISTRATOR_ACTIONS)("%s is refused before validation", async (_, action) => {
     actingAs(role);
 
-    await expect(action()).resolves.toEqual({ ok: false, error: "errors.forbiddenAction" });
+    await expect(action()).resolves.toEqual(refused);
   });
 });
 
-describe("users actions called by ADMIN", () => {
-  it("createUser passes the permission check and reaches validation", async () => {
+describe.each<Role>(["EMPLOYEE", "CONTRACTOR"])("profile edits called by %s", (role) => {
+  it.each(PROFILE_EDITS)("%s is refused before validation", async (_, action) => {
+    actingAs(role);
+
+    await expect(action()).resolves.toEqual(refused);
+  });
+});
+
+describe("actions passing the permission check reach validation", () => {
+  it("createUser called by ADMIN", async () => {
     actingAs("ADMIN");
 
     const result = await createUser({});
@@ -72,4 +87,24 @@ describe("users actions called by ADMIN", () => {
     expect(result.ok).toBe(false);
     expect(result).toHaveProperty("fieldErrors.login");
   });
+
+  it.each<Role>(["ADMIN", "MANAGER"])("profile edits called by %s", async (role) => {
+    actingAs(role);
+
+    for (const [, action] of PROFILE_EDITS) {
+      await expect(action()).resolves.toHaveProperty("fieldErrors.fullName");
+    }
+  });
+
+  it.each<Role>(["ADMIN", "MANAGER", "EMPLOYEE", "CONTRACTOR"])(
+    "revokeOwnSession called by %s does not end the current session",
+    async (role) => {
+      actingAs(role);
+
+      await expect(revokeOwnSession(CURRENT_SESSION_ID)).resolves.toEqual({
+        ok: false,
+        error: "users.errors.invalidRequest",
+      });
+    },
+  );
 });

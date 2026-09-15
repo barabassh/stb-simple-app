@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createUserSchema, resetPasswordSchema, updateUserSchema } from "@/features/users/schemas";
+import {
+  createUserSchema,
+  profileSchema,
+  resetPasswordSchema,
+  updateUserSchema,
+} from "@/features/users/schemas";
 
 const validUser = {
   login: "ivanov",
@@ -98,6 +103,17 @@ describe("updateUserSchema", () => {
       ["position", "users.validation.positionTooLong"],
       ["phone", "users.validation.phoneTooLong"],
       ["comment", "users.validation.commentTooLong"],
+    ]);
+  });
+});
+
+describe("profileSchema", () => {
+  it("keeps only the fields of one's own profile", () => {
+    expect(Object.keys(profileSchema.parse(validUser)).sort()).toEqual([
+      "email",
+      "fullName",
+      "phone",
+      "position",
     ]);
   });
 });

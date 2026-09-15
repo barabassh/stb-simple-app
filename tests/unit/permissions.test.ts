@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { Role } from "@/generated/prisma/enums";
-import { can, PermissionDeniedError, requirePermission, type Permission } from "@/lib/permissions";
+import {
+  can,
+  PermissionDeniedError,
+  requirePermission,
+  userUpdatePermission,
+  type Permission,
+} from "@/lib/permissions";
 
 const EVERY_ROLE = Object.values(Role);
 
@@ -11,6 +17,7 @@ const MATRIX: Record<Permission, Role[]> = {
   "users.history.read": ["ADMIN", "MANAGER"],
   "users.create": ["ADMIN"],
   "users.update": ["ADMIN"],
+  "users.updateProfile": ["ADMIN", "MANAGER"],
   "users.changeRole": ["ADMIN"],
   "users.resetPassword": ["ADMIN"],
   "users.changeStatus": ["ADMIN"],
@@ -20,15 +27,15 @@ const MATRIX: Record<Permission, Role[]> = {
   "audit.read": ["ADMIN"],
   "audit.export": ["ADMIN"],
   "profile.read": EVERY_ROLE,
-  "profile.update": EVERY_ROLE,
+  "profile.update": ["ADMIN", "MANAGER"],
   "profile.sessions": EVERY_ROLE,
 };
 
 describe("can", () => {
   it.each<[Role, Permission]>([
     ["ADMIN", "users.sessions.revoke"],
-    ["MANAGER", "users.read"],
-    ["EMPLOYEE", "profile.update"],
+    ["MANAGER", "users.updateProfile"],
+    ["EMPLOYEE", "profile.read"],
     ["CONTRACTOR", "profile.sessions"],
   ])("allows %s %s", (role, permission) => {
     expect(can({ role }, permission)).toBe(true);
@@ -39,7 +46,7 @@ describe("can", () => {
     // must be granted explicitly, a wildcard does not reach beyond its own section.
     ["ADMIN", "projects.read" as Permission],
     ["MANAGER", "users.create"],
-    ["EMPLOYEE", "users.read"],
+    ["EMPLOYEE", "profile.update"],
     ["CONTRACTOR", "audit.read"],
   ])("denies %s %s", (role, permission) => {
     expect(can({ role }, permission)).toBe(false);
@@ -53,6 +60,20 @@ describe("can", () => {
         );
       }
     }
+  });
+});
+
+describe("userUpdatePermission", () => {
+  it.each<[Role, Role, boolean]>([
+    ["ADMIN", "ADMIN", true],
+    ["ADMIN", "CONTRACTOR", true],
+    ["MANAGER", "ADMIN", false],
+    ["MANAGER", "MANAGER", true],
+    ["MANAGER", "EMPLOYEE", true],
+    ["EMPLOYEE", "EMPLOYEE", false],
+    ["CONTRACTOR", "CONTRACTOR", false],
+  ])("lets %s edit the profile of %s: %s", (actor, target, allowed) => {
+    expect(can({ role: actor }, userUpdatePermission({ role: target }))).toBe(allowed);
   });
 });
 

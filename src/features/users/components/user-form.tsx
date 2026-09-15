@@ -54,9 +54,10 @@ export function UserForm({ user, viewer }: UserFormProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
-  // Creating a user sets the role and the status as part of users.create.
+  // Creating a user sets the role, the status and the comment as part of users.create.
   const roleLocked = !!user && !can(viewer, "users.changeRole");
   const statusLocked = !!user && !can(viewer, "users.changeStatus");
+  const commentLocked = !!user && !can(viewer, "users.update");
 
   const form = useForm<CreateUserInput>({
     resolver: zodResolver(user ? editUserFormSchema : createUserSchema),
@@ -238,12 +239,16 @@ export function UserForm({ user, viewer }: UserFormProps) {
 
         <Field data-invalid={!!errors.comment} className="md:col-span-2">
           <FieldLabel htmlFor="comment">{t("users.fields.comment")}</FieldLabel>
-          <Textarea
-            id="comment"
-            rows={3}
-            aria-invalid={!!errors.comment}
-            {...form.register("comment")}
-          />
+          {commentLocked ? (
+            <Textarea id="comment" rows={3} value={user?.comment ?? ""} disabled readOnly />
+          ) : (
+            <Textarea
+              id="comment"
+              rows={3}
+              aria-invalid={!!errors.comment}
+              {...form.register("comment")}
+            />
+          )}
           <FieldError>{fieldError(errors.comment?.message)}</FieldError>
         </Field>
 

@@ -1,21 +1,24 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { BackLink } from "@/features/users/components/back-link";
 import { UserForm } from "@/features/users/components/user-form";
 import { getUser } from "@/features/users/queries";
+import { FORBIDDEN_PATH } from "@/lib/auth/constants";
 import { requirePagePermission } from "@/lib/auth/current-user";
+import { can, userUpdatePermission } from "@/lib/permissions";
 
 type EditUserPageProps = {
   params: Promise<{ id: string }>;
 };
 
 export default async function EditUserPage({ params }: EditUserPageProps) {
-  const viewer = await requirePagePermission("users.update");
+  const viewer = await requirePagePermission("users.updateProfile");
   const { id } = await params;
 
   const user = await getUser(viewer, id);
   if (!user) notFound();
+  if (!can(viewer, userUpdatePermission(user))) redirect(FORBIDDEN_PATH);
 
   const t = await getTranslations("users.form");
 

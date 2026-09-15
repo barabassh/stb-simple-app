@@ -106,6 +106,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
             id: user.id,
             login: user.login,
             fullName: user.fullName,
+            role: user.role,
             isActive: user.isActive,
           }}
           viewer={viewer}

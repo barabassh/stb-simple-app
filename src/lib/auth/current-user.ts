@@ -45,9 +45,9 @@ export async function requirePagePermission(permission: Permission): Promise<Ses
  * For server actions. Next.js renders the target of an action's redirect on the server and
  * passes on only the final response, so a cookie removed by the route handler would stay.
  */
-export async function requireActionUser(): Promise<SessionUser> {
-  const user = await getCurrentUser();
-  if (user) return user;
+export async function requireActionSession(): Promise<ValidatedSession> {
+  const current = await getCurrentSession();
+  if (current) return current;
   await deleteSessionCookie();
   redirect(LOGIN_PATH);
 }

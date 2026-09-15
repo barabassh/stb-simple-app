@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as clearSession } from "@/app/api/auth/clear-session/route";
 import { CLEAR_SESSION_PATH, HOME_PATH, LOGIN_PATH } from "@/lib/auth/constants";
-import { requireActionUser, requireUser } from "@/lib/auth/current-user";
+import { requireActionSession, requireUser } from "@/lib/auth/current-user";
 import {
   deleteSessionCookie,
   readSessionCookie,
@@ -57,18 +57,18 @@ describe("requireUser", () => {
   });
 });
 
-describe("requireActionUser", () => {
-  it("returns the user of a live session", async () => {
+describe("requireActionSession", () => {
+  it("returns a live session with its user", async () => {
     givenCookie("token", liveSession);
 
-    await expect(requireActionUser()).resolves.toEqual(liveSession.user);
+    await expect(requireActionSession()).resolves.toEqual(liveSession);
     expect(deleteSessionCookie).not.toHaveBeenCalled();
   });
 
   it("removes a cookie without a live session itself before redirecting to login", async () => {
     givenCookie("revoked-token");
 
-    await expect(requireActionUser()).rejects.toThrow(`redirect:${LOGIN_PATH}`);
+    await expect(requireActionSession()).rejects.toThrow(`redirect:${LOGIN_PATH}`);
     expect(deleteSessionCookie).toHaveBeenCalledOnce();
   });
 });

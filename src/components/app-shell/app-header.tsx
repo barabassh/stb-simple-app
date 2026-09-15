@@ -18,12 +18,15 @@ export async function AppHeader({ user }: { user: SessionUser }) {
       </Link>
 
       <div className="ml-auto flex min-w-0 items-center gap-3">
-        <div className="flex min-w-0 flex-col items-end leading-tight">
+        <Link
+          href="/profile"
+          className="flex min-w-0 flex-col items-end rounded-md px-2 py-1 leading-tight outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
           <span className="max-w-full truncate text-sm font-medium" title={user.fullName}>
             {user.fullName}
           </span>
           <span className="text-xs text-muted-foreground">{t(`users.roles.${user.role}`)}</span>
-        </div>
+        </Link>
         <Separator orientation="vertical" className="data-vertical:h-6 data-vertical:self-center" />
         <SignOutButton />
       </div>

@@ -1,10 +1,13 @@
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
 import { PermissionDeniedError, requirePermission, type Permission } from "@/lib/permissions";
 
-import { requireActionUser } from "./current-user";
+import { requireActionSession } from "./current-user";
 import type { SessionUser } from "./session";
 
 const forbidden: ActionFailure = { ok: false, error: "errors.forbiddenAction" };
+
+/** The user an action runs for, with the session the request came in, e.g. to keep it alive. */
+export type ActionActor = SessionUser & { sessionId: string };
 
 /**
  * Defines a server action that identifies the user and checks the permission before its
@@ -15,10 +18,11 @@ const forbidden: ActionFailure = { ok: false, error: "errors.forbiddenAction" };
  */
 export function authorizedAction<TArgs extends unknown[], TResult extends ActionResult>(
   permission: Permission,
-  action: (actor: SessionUser, ...args: TArgs) => Promise<TResult>,
+  action: (actor: ActionActor, ...args: TArgs) => Promise<TResult>,
 ): (...args: TArgs) => Promise<TResult | ActionFailure> {
   return async (...args) => {
-    const actor = await requireActionUser();
+    const { user, session } = await requireActionSession();
+    const actor = { ...user, sessionId: session.id };
     try {
       requirePermission(actor, permission);
       return await action(actor, ...args);

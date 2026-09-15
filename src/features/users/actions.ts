@@ -11,17 +11,24 @@ import { authorizedAction } from "@/lib/auth/authorized-action";
 import { hashPassword } from "@/lib/auth/password";
 import { invalidateAllUserSessions, invalidateSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, userUpdatePermission } from "@/lib/permissions";
 import { getClientInfo } from "@/lib/request-info";
 import { describeUserAgent } from "@/lib/user-agent";
 
 import { logUserChanges, USER_AUDIT_SELECT, userAuditSnapshot } from "./audit";
-import { createUserSchema, resetPasswordSchema, updateUserSchema, userIdSchema } from "./schemas";
+import {
+  createUserSchema,
+  profileSchema,
+  resetPasswordSchema,
+  updateUserSchema,
+  userIdSchema,
+} from "./schemas";
 
 // There is deliberately no delete action: users are only deactivated, so that a login and an
 // email always belong to one person in the audit log (docs/ТЗ.md, 4.7).
 
 const USERS_PATH = "/users";
+const PROFILE_PATH = "/profile";
 
 const notFound: ActionFailure = { ok: false, error: "users.errors.notFound" };
 const invalidRequest: ActionFailure = { ok: false, error: "users.errors.invalidRequest" };
@@ -35,20 +42,17 @@ function validationFailure(error: z.ZodError): ActionFailure {
   return { ok: false, fieldErrors: z.flattenError(error).fieldErrors };
 }
 
-function toProfileData({
+function toProfileData<T extends z.output<typeof profileSchema>>({
   position,
   email,
   phone,
-  comment,
   ...rest
-}: z.output<typeof updateUserSchema>) {
-  return {
-    ...rest,
-    position: position || null,
-    email: email || null,
-    phone: phone || null,
-    comment: comment || null,
-  };
+}: T) {
+  return { ...rest, position: position || null, email: email || null, phone: phone || null };
+}
+
+function toAccountData({ comment, ...profile }: z.output<typeof updateUserSchema>) {
+  return { ...toProfileData(profile), comment: comment || null };
 }
 
 /** Called once the input is valid: an invalid request is not worth reading the request for. */
@@ -107,8 +111,8 @@ export const createUser = authorizedAction(
   async (actor, input: unknown): Promise<ActionResult<{ id: string }>> => {
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success) return validationFailure(parsed.error);
-    const { login, password, ...profile } = parsed.data;
-    const data = toProfileData(profile);
+    const { login, password, ...account } = parsed.data;
+    const data = toAccountData(account);
     const passwordHash = await hashPassword(password);
     const { t, request } = await auditContext();
 
@@ -140,14 +144,17 @@ export const createUser = authorizedAction(
   },
 );
 
-/** The role and the status are separate permissions, checked only when the form changes them. */
+/**
+ * A manager edits the profile of a user who is not an administrator. The role, the status and
+ * the comment are separate permissions, checked only when the form changes them.
+ */
 export const updateUser = authorizedAction(
-  "users.update",
+  "users.updateProfile",
   async (actor, id: string, input: unknown): Promise<ActionResult> => {
     if (!userIdSchema.safeParse(id).success) return notFound;
     const parsed = updateUserSchema.safeParse(input);
     if (!parsed.success) return validationFailure(parsed.error);
-    const data = toProfileData(parsed.data);
+    const data = toAccountData(parsed.data);
 
     if (!data.isActive && id === actor.id) return cannotDeactivateSelf;
     const { t, request } = await auditContext();
@@ -157,8 +164,10 @@ export const updateUser = authorizedAction(
         const adminIds = await lockActiveAdminIds(tx);
         const target = await tx.user.findUnique({ where: { id }, select: USER_AUDIT_SELECT });
         if (!target) return notFound;
+        requirePermission(actor, userUpdatePermission(target));
         if (data.role !== target.role) requirePermission(actor, "users.changeRole");
         if (data.isActive !== target.isActive) requirePermission(actor, "users.changeStatus");
+        if (data.comment !== target.comment) requirePermission(actor, "users.update");
         if (isLastActiveAdmin(adminIds, id) && (data.role !== "ADMIN" || !data.isActive)) {
           return lastAdmin;
         }
@@ -189,6 +198,45 @@ export const updateUser = authorizedAction(
       if (failure) return failure;
       throw error;
     }
+  },
+);
+
+export const updateOwnProfile = authorizedAction(
+  "profile.update",
+  async (actor, input: unknown): Promise<ActionResult> => {
+    const parsed = profileSchema.safeParse(input);
+    if (!parsed.success) return validationFailure(parsed.error);
+    const data = toProfileData(parsed.data);
+    const { t, request } = await auditContext();
+
+    try {
+      await db.$transaction(async (tx) => {
+        const target = await tx.user.findUniqueOrThrow({
+          where: { id: actor.id },
+          select: USER_AUDIT_SELECT,
+        });
+        const changes = diffEntity(
+          userAuditSnapshot(target, t),
+          userAuditSnapshot({ ...target, ...data }, t),
+        );
+        if (changes.length === 0) return;
+
+        await tx.user.update({ where: { id: actor.id }, data: { ...data, updatedById: actor.id } });
+        await logUserChanges(
+          tx,
+          { actor, request, t, user: { id: actor.id, login: target.login, isActive: true } },
+          changes,
+        );
+      });
+    } catch (error) {
+      const failure = await uniqueViolation(error, { email: data.email, userId: actor.id });
+      if (failure) return failure;
+      throw error;
+    }
+
+    // The full name is also shown in the header of every page.
+    revalidatePath("/", "layout");
+    return { ok: true };
   },
 );
 
@@ -312,6 +360,67 @@ export const revokeAllUserSessions = authorizedAction(
     });
 
     revalidatePath(`${USERS_PATH}/${userId}`);
+    return { ok: true };
+  },
+);
+
+/** The current session is not ended here: that is signing out, logged as LOGOUT. */
+export const revokeOwnSession = authorizedAction(
+  "profile.sessions",
+  async (actor, sessionId: string): Promise<ActionResult> => {
+    if (!z.cuid().safeParse(sessionId).success || sessionId === actor.sessionId) {
+      return invalidRequest;
+    }
+    const { t, request } = await auditContext();
+
+    await db.$transaction(async (tx) => {
+      const session = await tx.session.findFirst({
+        where: { id: sessionId, userId: actor.id },
+        select: { userAgent: true },
+      });
+      if (!session || !(await invalidateSession(sessionId, { client: tx }))) return;
+
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "SESSION_REVOKE",
+        entity: "User",
+        entityId: actor.id,
+        summary: t("audit.summaries.sessionRevoked", {
+          login: actor.login,
+          browser: describeUserAgent(session.userAgent) ?? t("users.sessions.unknownBrowser"),
+        }),
+      });
+    });
+
+    revalidatePath(PROFILE_PATH);
+    return { ok: true };
+  },
+);
+
+export const revokeOtherOwnSessions = authorizedAction(
+  "profile.sessions",
+  async (actor): Promise<ActionResult> => {
+    const { t, request } = await auditContext();
+
+    await db.$transaction(async (tx) => {
+      const revoked = await invalidateAllUserSessions(actor.id, {
+        exceptSessionId: actor.sessionId,
+        client: tx,
+      });
+      if (revoked === 0) return;
+
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "SESSION_REVOKE",
+        entity: "User",
+        entityId: actor.id,
+        summary: t("audit.summaries.otherSessionsRevoked", { login: actor.login }),
+      });
+    });
+
+    revalidatePath(PROFILE_PATH);
     return { ok: true };
   },
 );

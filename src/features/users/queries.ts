@@ -97,9 +97,7 @@ export async function getUser(actor: SessionUser, id: string) {
 
 export type UserDetails = NonNullable<Awaited<ReturnType<typeof getUser>>>;
 
-export async function listActiveUserSessions(actor: SessionUser, userId: string) {
-  requirePermission(actor, "users.sessions.read");
-
+function findActiveSessions(userId: string) {
   return db.session.findMany({
     where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
     select: { id: true, createdAt: true, lastActiveAt: true, ip: true, userAgent: true },
@@ -107,4 +105,37 @@ export async function listActiveUserSessions(actor: SessionUser, userId: string)
   });
 }
 
-export type UserSessionItem = Awaited<ReturnType<typeof listActiveUserSessions>>[number];
+export type UserSessionItem = Awaited<ReturnType<typeof findActiveSessions>>[number];
+
+export async function listActiveUserSessions(actor: SessionUser, userId: string) {
+  requirePermission(actor, "users.sessions.read");
+  return findActiveSessions(userId);
+}
+
+/** The comment is left out: it is the administrator's note about the user, not their own data. */
+export async function getOwnProfile(actor: SessionUser) {
+  requirePermission(actor, "profile.read");
+
+  return db.user.findUniqueOrThrow({
+    where: { id: actor.id },
+    select: {
+      login: true,
+      fullName: true,
+      position: true,
+      email: true,
+      phone: true,
+      role: true,
+      createdAt: true,
+      updatedAt: true,
+      createdBy: { select: { fullName: true, login: true } },
+      updatedBy: { select: { fullName: true, login: true } },
+    },
+  });
+}
+
+export type OwnProfile = Awaited<ReturnType<typeof getOwnProfile>>;
+
+export async function listOwnSessions(actor: SessionUser) {
+  requirePermission(actor, "profile.sessions");
+  return findActiveSessions(actor.id);
+}
