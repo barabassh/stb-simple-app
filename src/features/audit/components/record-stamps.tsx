@@ -17,7 +17,11 @@ export function RecordStamps({ created, updated }: { created: Stamp; updated: St
     if (!stamp.by) return t(withoutAuthor, { date });
     return (
       <span title={`${stamp.by.fullName} (${stamp.by.login})`}>
-        {t(withAuthor, { date, author: formatShortName(stamp.by.fullName) })}
+        {t(withAuthor, {
+          date,
+          // On a phone the line breaks before the author rather than between the initials.
+          author: formatShortName(stamp.by.fullName).replaceAll(" ", "\u00A0"),
+        })}
       </span>
     );
   }

@@ -59,8 +59,10 @@ export function CompanyDetailGroup({ group }: { group: DetailGroup }) {
           <dl
             key={index}
             // One grid for the rows of a column keeps their cells aligned; the name column is never
-            // narrower than its longest word.
-            className="min-w-0 content-start divide-y sm:grid sm:grid-cols-[minmax(min-content,2fr)_3fr]"
+            // narrower than its longest word. The last row takes the height left over next to a
+            // longer column, so the line between names and values runs down to the frame.
+            className="min-w-0 divide-y sm:grid sm:grid-cols-[minmax(min-content,2fr)_3fr]"
+            style={{ gridTemplateRows: `${"auto ".repeat(rows.length - 1)}1fr` }}
           >
             {rows.map(({ key, ...row }) => (
               <CompanyDetailRow key={key} {...row} />
