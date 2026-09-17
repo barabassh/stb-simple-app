@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
-import { BackLink } from "@/features/users/components/back-link";
+import { BackLink } from "@/components/back-link";
 import { UserForm } from "@/features/users/components/user-form";
 import { requirePagePermission } from "@/lib/auth/current-user";
 

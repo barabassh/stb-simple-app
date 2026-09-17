@@ -8,7 +8,7 @@ import { AuditTable } from "@/features/audit/components/audit-table";
 import { RecordStamps } from "@/features/audit/components/record-stamps";
 import { parseAuditTableState } from "@/features/audit/list-params";
 import { listEntityAuditLogs } from "@/features/audit/queries";
-import { BackLink } from "@/features/users/components/back-link";
+import { BackLink } from "@/components/back-link";
 import { UserCardActions } from "@/features/users/components/user-card-actions";
 import { UserProfileDetails } from "@/features/users/components/user-profile-details";
 import { UserSessions } from "@/features/users/components/user-sessions";

@@ -30,3 +30,13 @@ export async function getCompanyProfile(actor: SessionUser) {
 }
 
 export type CompanyProfileDetails = NonNullable<Awaited<ReturnType<typeof getCompanyProfile>>>;
+
+/** The id the history of the profile is logged under; null until it is filled. */
+export async function getCompanyProfileId(actor: SessionUser): Promise<string | null> {
+  requirePermission(actor, "settings.company.history");
+  const profile = await db.companyProfile.findFirst({
+    where: { singleton: true },
+    select: { id: true },
+  });
+  return profile?.id ?? null;
+}

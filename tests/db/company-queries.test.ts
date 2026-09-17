@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getCompanyProfile } from "@/features/company/queries";
+import { getCompanyProfile, getCompanyProfileId } from "@/features/company/queries";
 import { db } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
 
@@ -57,5 +57,22 @@ describe("getCompanyProfile", () => {
     expect(warehouses?.map(({ name }) => name)).toEqual(["First", "Second"]);
     expect(profile?.phones.map(({ number }) => number)).toEqual(["+31684614732", "+31201234567"]);
     expect(profile?.activities.map(({ sbiCode }) => sbiCode)).toEqual(["4120", "4399"]);
+  });
+});
+
+describe("getCompanyProfileId", () => {
+  it("refuses a role without the company profile history", async () => {
+    const contractor = await createUser({ role: "CONTRACTOR" });
+
+    await expect(getCompanyProfileId(contractor)).rejects.toThrow(PermissionDeniedError);
+  });
+
+  it("returns the id once the profile is filled", async () => {
+    const manager = await createUser({ role: "MANAGER" });
+    await expect(getCompanyProfileId(manager)).resolves.toBeNull();
+
+    const { id } = await db.companyProfile.create({ data: { legalName: "Bouw B.V." } });
+
+    await expect(getCompanyProfileId(manager)).resolves.toBe(id);
   });
 });

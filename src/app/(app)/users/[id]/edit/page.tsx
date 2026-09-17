@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { BackLink } from "@/features/users/components/back-link";
+import { BackLink } from "@/components/back-link";
 import { UserForm } from "@/features/users/components/user-form";
 import { getUser } from "@/features/users/queries";
 import { FORBIDDEN_PATH } from "@/lib/auth/constants";
