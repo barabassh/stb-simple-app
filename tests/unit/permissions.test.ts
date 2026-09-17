@@ -24,6 +24,7 @@ const MATRIX: Record<Permission, Role[]> = {
   "users.sessions.read": ["ADMIN"],
   "users.sessions.revoke": ["ADMIN"],
   "users.export": ["ADMIN", "MANAGER"],
+  "users.changeContractor": ["ADMIN"],
   "audit.read": ["ADMIN"],
   "audit.export": ["ADMIN"],
   "profile.read": EVERY_ROLE,
@@ -33,6 +34,27 @@ const MATRIX: Record<Permission, Role[]> = {
   "settings.company.read": ["ADMIN", "MANAGER"],
   "settings.company.update": ["ADMIN", "MANAGER"],
   "settings.company.history": ["ADMIN", "MANAGER"],
+  "customers.read": ["ADMIN", "MANAGER", "EMPLOYEE"],
+  "customers.create": ["ADMIN", "MANAGER"],
+  "customers.update": ["ADMIN", "MANAGER"],
+  "customers.changeStatus": ["ADMIN", "MANAGER"],
+  "customers.export": ["ADMIN", "MANAGER"],
+  "customers.history": ["ADMIN", "MANAGER", "EMPLOYEE"],
+  "contractors.read": ["ADMIN", "MANAGER", "EMPLOYEE"],
+  "contractors.create": ["ADMIN", "MANAGER"],
+  "contractors.update": ["ADMIN", "MANAGER"],
+  "contractors.changeStatus": ["ADMIN", "MANAGER"],
+  "contractors.export": ["ADMIN", "MANAGER"],
+  "contractors.history": ["ADMIN", "MANAGER", "EMPLOYEE"],
+  "projects.read": ["ADMIN", "MANAGER", "EMPLOYEE"],
+  "projects.readActive": EVERY_ROLE,
+  "projects.budget.read": ["ADMIN", "MANAGER"],
+  "projects.create": ["ADMIN", "MANAGER"],
+  "projects.update": ["ADMIN", "MANAGER"],
+  "projects.changeStatus": ["ADMIN", "MANAGER"],
+  "projects.delete": ["ADMIN"],
+  "projects.export": ["ADMIN", "MANAGER"],
+  "projects.history": ["ADMIN", "MANAGER", "EMPLOYEE"],
 };
 
 describe("can", () => {
@@ -43,6 +65,10 @@ describe("can", () => {
     ["CONTRACTOR", "profile.sessions"],
     ["ADMIN", "settings.company.history"],
     ["MANAGER", "settings.company.update"],
+    ["ADMIN", "projects.delete"],
+    ["MANAGER", "customers.changeStatus"],
+    ["EMPLOYEE", "projects.history"],
+    ["CONTRACTOR", "projects.readActive"],
   ])("allows %s %s", (role, permission) => {
     expect(can({ role }, permission)).toBe(true);
   });
@@ -50,10 +76,15 @@ describe("can", () => {
   it.each<[Role, Permission]>([
     // An administrator holds every permission defined so far: a section added later
     // must be granted explicitly, a wildcard does not reach beyond its own section.
-    ["ADMIN", "projects.read" as Permission],
+    ["ADMIN", "expenses.read" as Permission],
     ["MANAGER", "users.create"],
+    ["MANAGER", "projects.delete"],
     ["EMPLOYEE", "profile.update"],
+    ["EMPLOYEE", "customers.update"],
+    ["EMPLOYEE", "projects.budget.read"],
     ["CONTRACTOR", "audit.read"],
+    ["CONTRACTOR", "projects.read"],
+    ["CONTRACTOR", "customers.read"],
     ["EMPLOYEE", "settings.read"],
     ["CONTRACTOR", "settings.company.read"],
   ])("denies %s %s", (role, permission) => {

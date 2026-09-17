@@ -14,6 +14,7 @@ export type Permission =
   | "users.sessions.read"
   | "users.sessions.revoke"
   | "users.export"
+  | "users.changeContractor"
   | "audit.read"
   | "audit.export"
   | "profile.read"
@@ -22,12 +23,41 @@ export type Permission =
   | "settings.read"
   | "settings.company.read"
   | "settings.company.update"
-  | "settings.company.history";
+  | "settings.company.history"
+  | "customers.read"
+  | "customers.create"
+  | "customers.update"
+  | "customers.changeStatus"
+  | "customers.export"
+  | "customers.history"
+  | "contractors.read"
+  | "contractors.create"
+  | "contractors.update"
+  | "contractors.changeStatus"
+  | "contractors.export"
+  | "contractors.history"
+  | "projects.read"
+  | "projects.readActive"
+  | "projects.budget.read"
+  | "projects.create"
+  | "projects.update"
+  | "projects.changeStatus"
+  | "projects.delete"
+  | "projects.export"
+  | "projects.history";
 
 type Grant = Permission | `${string}.*`;
 
 export const PERMISSIONS = {
-  ADMIN: ["users.*", "audit.*", "profile.*", "settings.*"],
+  ADMIN: [
+    "users.*",
+    "audit.*",
+    "profile.*",
+    "settings.*",
+    "customers.*",
+    "contractors.*",
+    "projects.*",
+  ],
   MANAGER: [
     "users.read",
     "users.history.read",
@@ -38,9 +68,29 @@ export const PERMISSIONS = {
     "settings.company.read",
     "settings.company.update",
     "settings.company.history",
+    "customers.*",
+    "contractors.*",
+    "projects.read",
+    "projects.readActive",
+    "projects.budget.read",
+    "projects.create",
+    "projects.update",
+    "projects.changeStatus",
+    "projects.export",
+    "projects.history",
   ],
-  EMPLOYEE: ["profile.read", "profile.sessions"],
-  CONTRACTOR: ["profile.read", "profile.sessions"],
+  EMPLOYEE: [
+    "profile.read",
+    "profile.sessions",
+    "customers.read",
+    "customers.history",
+    "contractors.read",
+    "contractors.history",
+    "projects.read",
+    "projects.readActive",
+    "projects.history",
+  ],
+  CONTRACTOR: ["profile.read", "profile.sessions", "projects.readActive"],
 } as const satisfies Record<Role, readonly Grant[]>;
 
 export function can(user: Pick<SessionUser, "role">, permission: Permission): boolean {

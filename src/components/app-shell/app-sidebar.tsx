@@ -1,4 +1,13 @@
-import { HouseIcon, ScrollTextIcon, SettingsIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import {
+  Building2Icon,
+  FolderKanbanIcon,
+  HandshakeIcon,
+  HouseIcon,
+  ScrollTextIcon,
+  SettingsIcon,
+  UsersIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { HOME_PATH } from "@/lib/auth/constants";
@@ -8,7 +17,7 @@ import { can, type Permission } from "@/lib/permissions";
 import { NavLink } from "./nav-link";
 
 type NavItem = {
-  key: "home" | "users" | "audit" | "settings";
+  key: "home" | "projects" | "customers" | "contractors" | "users" | "audit" | "settings";
   href: string;
   icon: LucideIcon;
   permission?: Permission;
@@ -16,6 +25,10 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { key: "home", href: HOME_PATH, icon: HouseIcon },
+  // A contractor sees the section too, but only the projects in progress (docs/ТЗ.md, 6.2).
+  { key: "projects", href: "/projects", icon: FolderKanbanIcon, permission: "projects.readActive" },
+  { key: "customers", href: "/customers", icon: HandshakeIcon, permission: "customers.read" },
+  { key: "contractors", href: "/contractors", icon: Building2Icon, permission: "contractors.read" },
   { key: "users", href: "/users", icon: UsersIcon, permission: "users.read" },
   { key: "audit", href: "/audit", icon: ScrollTextIcon, permission: "audit.read" },
   { key: "settings", href: "/settings", icon: SettingsIcon, permission: "settings.read" },

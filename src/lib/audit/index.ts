@@ -16,7 +16,15 @@ export const AUDIT_EXCLUDED_FIELDS = [
 const excludedFields: ReadonlySet<string> = new Set(AUDIT_EXCLUDED_FIELDS);
 
 /** Model names written to `AuditLog.entity`; a new entity is added here and to `audit.entities`. */
-export const AUDIT_ENTITIES = ["User", "Session", "AuditLog", "CompanyProfile"] as const;
+export const AUDIT_ENTITIES = [
+  "User",
+  "Session",
+  "AuditLog",
+  "CompanyProfile",
+  "Customer",
+  "Contractor",
+  "Project",
+] as const;
 export type AuditEntity = (typeof AUDIT_ENTITIES)[number];
 
 export type AuditValue = string | number | boolean | null;

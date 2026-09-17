@@ -1,6 +1,8 @@
 import {
+  Building2Icon,
   CalculatorIcon,
   FolderKanbanIcon,
+  HandshakeIcon,
   LayoutDashboardIcon,
   SettingsIcon,
   UsersIcon,
@@ -16,16 +18,19 @@ import { can, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 type Section = {
-  key: "users" | "projects" | "estimates" | "dashboard" | "settings";
+  key: "projects" | "customers" | "contractors" | "users" | "estimates" | "dashboard" | "settings";
   icon: LucideIcon;
   /** Sections without a route are shown as "in development". */
   href?: string;
   permission?: Permission;
 };
 
+// The same order as the sections of the side menu.
 const SECTIONS: Section[] = [
+  { key: "projects", icon: FolderKanbanIcon, href: "/projects", permission: "projects.readActive" },
+  { key: "customers", icon: HandshakeIcon, href: "/customers", permission: "customers.read" },
+  { key: "contractors", icon: Building2Icon, href: "/contractors", permission: "contractors.read" },
   { key: "users", icon: UsersIcon, href: "/users", permission: "users.read" },
-  { key: "projects", icon: FolderKanbanIcon },
   { key: "estimates", icon: CalculatorIcon },
   { key: "dashboard", icon: LayoutDashboardIcon },
   { key: "settings", icon: SettingsIcon, href: "/settings", permission: "settings.read" },
