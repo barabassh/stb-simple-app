@@ -2,7 +2,7 @@ import { getRequestConfig } from "next-intl/server";
 
 import { DISPLAY_TIME_ZONE } from "@/lib/format";
 
-// Single locale without /ru/... routes; switching appears with the second locale (stage 7).
+// Single locale without /ru/... routes; switching appears with the second locale (stage 8).
 export const DEFAULT_LOCALE = "ru";
 
 export default getRequestConfig(async () => {
