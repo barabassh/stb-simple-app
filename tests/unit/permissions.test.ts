@@ -29,6 +29,10 @@ const MATRIX: Record<Permission, Role[]> = {
   "profile.read": EVERY_ROLE,
   "profile.update": ["ADMIN", "MANAGER"],
   "profile.sessions": EVERY_ROLE,
+  "settings.read": ["ADMIN", "MANAGER"],
+  "settings.company.read": ["ADMIN", "MANAGER"],
+  "settings.company.update": ["ADMIN", "MANAGER"],
+  "settings.company.history": ["ADMIN", "MANAGER"],
 };
 
 describe("can", () => {
@@ -37,6 +41,8 @@ describe("can", () => {
     ["MANAGER", "users.updateProfile"],
     ["EMPLOYEE", "profile.read"],
     ["CONTRACTOR", "profile.sessions"],
+    ["ADMIN", "settings.company.history"],
+    ["MANAGER", "settings.company.update"],
   ])("allows %s %s", (role, permission) => {
     expect(can({ role }, permission)).toBe(true);
   });
@@ -48,6 +54,8 @@ describe("can", () => {
     ["MANAGER", "users.create"],
     ["EMPLOYEE", "profile.update"],
     ["CONTRACTOR", "audit.read"],
+    ["EMPLOYEE", "settings.read"],
+    ["CONTRACTOR", "settings.company.read"],
   ])("denies %s %s", (role, permission) => {
     expect(can({ role }, permission)).toBe(false);
   });

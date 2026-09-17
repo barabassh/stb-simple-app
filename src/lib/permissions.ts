@@ -18,13 +18,27 @@ export type Permission =
   | "audit.export"
   | "profile.read"
   | "profile.update"
-  | "profile.sessions";
+  | "profile.sessions"
+  | "settings.read"
+  | "settings.company.read"
+  | "settings.company.update"
+  | "settings.company.history";
 
 type Grant = Permission | `${string}.*`;
 
 export const PERMISSIONS = {
-  ADMIN: ["users.*", "audit.*", "profile.*"],
-  MANAGER: ["users.read", "users.history.read", "users.updateProfile", "users.export", "profile.*"],
+  ADMIN: ["users.*", "audit.*", "profile.*", "settings.*"],
+  MANAGER: [
+    "users.read",
+    "users.history.read",
+    "users.updateProfile",
+    "users.export",
+    "profile.*",
+    "settings.read",
+    "settings.company.read",
+    "settings.company.update",
+    "settings.company.history",
+  ],
   EMPLOYEE: ["profile.read", "profile.sessions"],
   CONTRACTOR: ["profile.read", "profile.sessions"],
 } as const satisfies Record<Role, readonly Grant[]>;

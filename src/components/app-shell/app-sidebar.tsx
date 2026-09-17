@@ -1,4 +1,4 @@
-import { HouseIcon, ScrollTextIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import { HouseIcon, ScrollTextIcon, SettingsIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { HOME_PATH } from "@/lib/auth/constants";
@@ -8,7 +8,7 @@ import { can, type Permission } from "@/lib/permissions";
 import { NavLink } from "./nav-link";
 
 type NavItem = {
-  key: "home" | "users" | "audit";
+  key: "home" | "users" | "audit" | "settings";
   href: string;
   icon: LucideIcon;
   permission?: Permission;
@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "home", href: HOME_PATH, icon: HouseIcon },
   { key: "users", href: "/users", icon: UsersIcon, permission: "users.read" },
   { key: "audit", href: "/audit", icon: ScrollTextIcon, permission: "audit.read" },
+  { key: "settings", href: "/settings", icon: SettingsIcon, permission: "settings.read" },
 ];
 
 export async function AppSidebar({ user }: { user: SessionUser }) {

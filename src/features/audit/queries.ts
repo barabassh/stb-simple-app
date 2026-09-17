@@ -34,6 +34,7 @@ const HISTORY_PERMISSION: Record<AuditEntity, Permission> = {
   User: "users.history.read",
   Session: "audit.read",
   AuditLog: "audit.read",
+  CompanyProfile: "settings.company.history",
 };
 
 function toListItem(

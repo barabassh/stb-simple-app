@@ -2,6 +2,7 @@ import {
   CalculatorIcon,
   FolderKanbanIcon,
   LayoutDashboardIcon,
+  SettingsIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -15,7 +16,7 @@ import { can, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 type Section = {
-  key: "users" | "projects" | "estimates" | "dashboard";
+  key: "users" | "projects" | "estimates" | "dashboard" | "settings";
   icon: LucideIcon;
   /** Sections without a route are shown as "in development". */
   href?: string;
@@ -27,6 +28,7 @@ const SECTIONS: Section[] = [
   { key: "projects", icon: FolderKanbanIcon },
   { key: "estimates", icon: CalculatorIcon },
   { key: "dashboard", icon: LayoutDashboardIcon },
+  { key: "settings", icon: SettingsIcon, href: "/settings", permission: "settings.read" },
 ];
 
 export default async function HomePage() {
