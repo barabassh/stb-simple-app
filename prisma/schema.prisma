@@ -62,6 +62,11 @@ model User {
   updatedBy          User?     @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedUsers       User[]    @relation("UserUpdatedBy")
 
+  createdCompanyProfiles  CompanyProfile[] @relation("CompanyProfileCreatedBy")
+  updatedCompanyProfiles  CompanyProfile[] @relation("CompanyProfileUpdatedBy")
+  createdCompanyAddresses CompanyAddress[] @relation("CompanyAddressCreatedBy")
+  updatedCompanyAddresses CompanyAddress[] @relation("CompanyAddressUpdatedBy")
+
   @@index([role])
   @@index([isActive])
   @@index([fullName])
@@ -108,4 +113,148 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([actorId, at])
   @@index([action])
+}
+
+// Stage 2: company profile (docs/СХЕМА-БД.md, section 8).
+
+enum LegalForm {
+  EENMANSZAAK
+  VOF
+  CV
+  BV
+  NV
+  STICHTING
+  VERENIGING
+  COOPERATIE
+  MAATSCHAP
+  OTHER
+}
+
+enum CompanyAddressType {
+  OFFICE
+  POSTAL
+  WAREHOUSE
+}
+
+enum SocialNetwork {
+  LINKEDIN
+  FACEBOOK
+  INSTAGRAM
+  X
+  YOUTUBE
+  TIKTOK
+  OTHER
+}
+
+model CompanyProfile {
+  id                  String     @id @default(cuid())
+  // Only ever true (CHECK in the migration): a concurrent second insert fails on uniqueness.
+  singleton           Boolean    @unique @default(true)
+
+  legalName           String
+  tradeName           String?
+  legalForm           LegalForm
+  // A calendar date from the KvK extract; converting it to a time zone would shift the day.
+  registeredOn        DateTime?  @db.Date
+  statutorySeat       String?
+
+  kvkNumber           String?
+  establishmentNumber String?
+  rsin                String?
+  vatId               String?
+  vatNumber           String?
+  payrollTaxNumber    String?
+
+  email               String
+  phone               String
+  website             String?
+  activityDescription String?
+  postalSameAsOffice  Boolean    @default(true)
+
+  // Optimistic locking: a counter, because updatedAt has limited precision.
+  version             Int        @default(1)
+
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  createdById         String?
+  updatedById         String?
+
+  createdBy           User?      @relation("CompanyProfileCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?      @relation("CompanyProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  addresses           CompanyAddress[]
+  phones              CompanyPhone[]
+  socialLinks         CompanySocialLink[]
+  activities          CompanyActivity[]
+}
+
+// One active OFFICE and one POSTAL address per company: partial unique index in the migration.
+// Warehouses will be referenced by later stages, hence audit fields and soft delete.
+model CompanyAddress {
+  id                  String             @id @default(cuid())
+  companyId           String
+  type                CompanyAddressType
+  name                String?
+  // Empty for a PO box (postbus).
+  street              String?
+  houseNumber         Int?
+  houseNumberAddition String?
+  postbus             String?
+  postcode            String
+  city                String
+  // ISO 3166-1 alpha-2; names come from Intl.DisplayNames.
+  country             String             @default("NL") @db.Char(2)
+  sortOrder           Int                @default(0)
+
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  createdById         String?
+  updatedById         String?
+  deletedAt           DateTime?
+
+  company             CompanyProfile     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy           User?              @relation("CompanyAddressCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?              @relation("CompanyAddressUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId, type])
+}
+
+// Phones, social links and activities are replaced as a whole with the profile and nothing
+// refers to them, so they deliberately have no audit fields or soft delete.
+
+model CompanyPhone {
+  id        String         @id @default(cuid())
+  companyId String
+  label     String?
+  number    String
+  sortOrder Int
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model CompanySocialLink {
+  id        String         @id @default(cuid())
+  companyId String
+  network   SocialNetwork
+  url       String
+  sortOrder Int
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model CompanyActivity {
+  id          String         @id @default(cuid())
+  companyId   String
+  sbiCode     String
+  description String
+  isMain      Boolean        @default(false)
+  sortOrder   Int
+
+  company     CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, sbiCode])
 }

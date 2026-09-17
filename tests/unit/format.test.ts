@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   displayDayRange,
+  displayTodayIso,
   formatDate,
   formatDateTime,
   formatNumber,
@@ -30,6 +31,13 @@ describe("formatDateTime", () => {
 
   it("applies winter time (UTC+2) and a 24-hour clock", () => {
     expect(formatDateTime("2026-01-15T22:30:00Z")).toBe("16.01.2026 00:30");
+  });
+});
+
+describe("displayTodayIso", () => {
+  it("gives the Kyiv calendar day as yyyy-MM-dd", () => {
+    expect(displayTodayIso("2026-09-17T08:00:00Z")).toBe("2026-09-17");
+    expect(displayTodayIso("2026-09-16T21:30:00Z")).toBe("2026-09-17");
   });
 });
 

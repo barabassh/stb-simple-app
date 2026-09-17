@@ -42,6 +42,12 @@ export function formatDateTime(value: DateInput | null | undefined): string {
   return `${day}.${month}.${year} ${hour}:${minute}`;
 }
 
+/** Today's date in Europe/Kyiv as `yyyy-MM-dd`, the value a date input holds. */
+export function displayTodayIso(now: DateInput = Date.now()): string {
+  const { day, month, year } = toParts(now);
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * The Europe/Kyiv wall clock of an instant, to the minute, held in the UTC fields of a Date. For
  * files that store a date without a time zone, such as a spreadsheet cell, which would show UTC.

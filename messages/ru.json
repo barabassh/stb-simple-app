@@ -344,5 +344,52 @@
     "details": "Личные данные",
     "roleLocked": "Роль назначает администратор",
     "sessions": "Активные сессии"
+  },
+  "settings": {
+    "company": {
+      "validation": {
+        "legalNameLength": "Название компании должно содержать от 2 до 200 символов",
+        "tradeNameTooLong": "Торговое наименование — не длиннее 200 символов",
+        "legalFormRequired": "Выберите правовую форму",
+        "dateInvalid": "Введите корректную дату",
+        "registeredOnInFuture": "Дата регистрации не может быть позже сегодняшней",
+        "statutorySeatTooLong": "Статутарное местонахождение — не длиннее 100 символов",
+        "kvkNumberInvalid": "Номер Торговой палаты — ровно 8 цифр",
+        "establishmentNumberInvalid": "Номер филиала — ровно 12 цифр",
+        "rsinFormat": "RSIN — ровно 9 цифр",
+        "rsinChecksum": "Неверный RSIN: не проходит контрольную проверку",
+        "vatNumberFormat": "Формат: NL, 9 цифр, B и 2 цифры, например NL005025949B57",
+        "payrollTaxNumberFormat": "Формат: 9 цифр, L и 2 цифры, например 123456789L01",
+        "streetLength": "Улица — от 1 до 100 символов",
+        "houseNumberInvalid": "Номер дома — целое число от 1 до 99999",
+        "houseNumberAdditionInvalid": "Дополнение — до 10 символов: буквы, цифры, дефис и пробел",
+        "postbusInvalid": "Номер абонентского ящика — целое число от 1 до 99999",
+        "postcodeRequired": "Укажите почтовый индекс",
+        "postcodeNl": "Индекс в Нидерландах — 4 цифры (первая не 0) и 2 латинские буквы, например 3741 RS",
+        "postcodeForeign": "Индекс — от 2 до 12 символов: буквы, цифры, пробел и дефис",
+        "cityLength": "Город — от 1 до 80 символов",
+        "countryRequired": "Выберите страну",
+        "warehouseNameTooLong": "Название склада — не длиннее 100 символов",
+        "warehousesTooMany": "Не больше 10 складов",
+        "emailInvalid": "Введите корректный email",
+        "emailTooLong": "Email — не длиннее 254 символов",
+        "phoneRequired": "Укажите номер телефона",
+        "phoneInvalid": "Неверный номер: от 9 до 15 цифр, например +31 6 84614732 или 06 84614732",
+        "phoneLabelTooLong": "Подпись — не длиннее 50 символов",
+        "phonesTooMany": "Не больше 5 дополнительных телефонов",
+        "websiteInvalid": "Введите адрес сайта, например www.example.nl или https://example.nl",
+        "urlTooLong": "Адрес — не длиннее 255 символов",
+        "socialNetworkRequired": "Выберите социальную сеть",
+        "socialLinkInvalid": "Введите ссылку, начинающуюся с https://",
+        "socialLinksTooMany": "Не больше 10 социальных сетей",
+        "sbiCodeInvalid": "Код SBI — 4 или 5 цифр",
+        "sbiCodeDuplicate": "Этот код SBI уже есть в списке",
+        "activityDescriptionLength": "Описание — от 1 до 200 символов",
+        "activitiesTooMany": "Не больше 20 видов деятельности",
+        "mainActivityRequired": "Отметьте основной вид деятельности",
+        "mainActivityNotUnique": "Основным может быть только один вид деятельности",
+        "activityDescriptionTooLong": "Описание деятельности — не длиннее 1000 символов"
+      }
+    }
   }
 }
