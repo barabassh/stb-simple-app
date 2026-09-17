@@ -1,4 +1,4 @@
-// Countries offered for company addresses (docs/ТЗ.md, 5.4). Stored as ISO 3166-1 alpha-2 codes;
+// Countries offered for addresses (docs/ТЗ.md, 5.4). Stored as ISO 3166-1 alpha-2 codes;
 // names come from Intl.DisplayNames, so new interface languages need no translations here.
 
 export const DEFAULT_COUNTRY = "NL";

@@ -28,8 +28,8 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { LegalForm, SocialNetwork } from "@/generated/prisma/enums";
 import { displayTodayIso } from "@/lib/format";
+import { countryOptions } from "@/lib/nl/countries";
 
-import { countryOptions } from "../countries";
 import { emptyStreetAddress } from "../form-values";
 import { COMPANY_LIST_LIMITS, type CompanyFormInput } from "../schemas";
 

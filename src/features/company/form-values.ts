@@ -1,6 +1,6 @@
 import type { CompanyAddress, CompanyProfile } from "@/generated/prisma/client";
+import { DEFAULT_COUNTRY } from "@/lib/nl/countries";
 
-import { DEFAULT_COUNTRY } from "./countries";
 import type { CompanyFormInput } from "./schemas";
 
 /** A saved profile with its active addresses and lists, as getCompanyProfile returns it. */

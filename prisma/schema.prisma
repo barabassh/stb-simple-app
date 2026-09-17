@@ -49,6 +49,9 @@ model User {
   failedLoginCount   Int       @default(0)
   lockedUntil        DateTime?
 
+  // Only for the CONTRACTOR role; cleared by the action when the role changes.
+  contractorId       String?
+
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   createdById        String?
@@ -62,14 +65,25 @@ model User {
   updatedBy          User?     @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedUsers       User[]    @relation("UserUpdatedBy")
 
+  contractor         Contractor? @relation("UserContractor", fields: [contractorId], references: [id], onDelete: Restrict)
+
   createdCompanyProfiles  CompanyProfile[] @relation("CompanyProfileCreatedBy")
   updatedCompanyProfiles  CompanyProfile[] @relation("CompanyProfileUpdatedBy")
   createdCompanyAddresses CompanyAddress[] @relation("CompanyAddressCreatedBy")
   updatedCompanyAddresses CompanyAddress[] @relation("CompanyAddressUpdatedBy")
 
+  createdCustomers        Customer[]       @relation("CustomerCreatedBy")
+  updatedCustomers        Customer[]       @relation("CustomerUpdatedBy")
+  createdContractors      Contractor[]     @relation("ContractorCreatedBy")
+  updatedContractors      Contractor[]     @relation("ContractorUpdatedBy")
+  closedProjects          Project[]        @relation("ProjectClosedBy")
+  createdProjects         Project[]        @relation("ProjectCreatedBy")
+  updatedProjects         Project[]        @relation("ProjectUpdatedBy")
+
   @@index([role])
   @@index([isActive])
   @@index([fullName])
+  @@index([contractorId])
 }
 
 model Session {
@@ -257,4 +271,140 @@ model CompanyActivity {
   company     CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, sbiCode])
+}
+
+// Stage 3: customers, contractors and projects (docs/СХЕМА-БД.md, section 9).
+
+enum CustomerType {
+  COMPANY
+  PERSON
+}
+
+enum ProjectStatus {
+  IN_PROGRESS
+  // Nothing in a closed project may change.
+  CLOSED
+}
+
+enum VatRate {
+  STANDARD_21
+  REDUCED_9
+  ZERO
+  // "Verlegd": the customer accounts for the VAT.
+  REVERSE_CHARGE
+}
+
+// Customers and contractors are archived (isActive) instead of deleted: projects, the audit log
+// and contractor accounts refer to them.
+model Customer {
+  id                  String        @id @default(cuid())
+  type                CustomerType  @default(COMPANY)
+  // A company name or a person's full name.
+  name                String
+  // kvkNumber, vatId and contactPerson are NULL for a PERSON (CHECK in the migration).
+  kvkNumber           String?       @unique
+  vatId               String?
+  contactPerson       String?
+  email               String?
+  phone               String?
+
+  street              String?
+  houseNumber         Int?
+  houseNumberAddition String?
+  postcode            String?
+  city                String?
+  // Filled together with the address.
+  country             String?       @db.Char(2)
+
+  comment             String?
+  isActive            Boolean       @default(true)
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  createdById         String?
+  updatedById         String?
+
+  createdBy           User?         @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?         @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  projects            Project[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Contractor {
+  id                  String        @id @default(cuid())
+  name                String
+  legalForm           LegalForm?
+  kvkNumber           String?       @unique
+  vatId               String?
+  contactPerson       String?
+  email               String?
+  phone               String?
+
+  street              String?
+  houseNumber         Int?
+  houseNumberAddition String?
+  postcode            String?
+  city                String?
+  country             String?       @db.Char(2)
+
+  comment             String?
+  isActive            Boolean       @default(true)
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  createdById         String?
+  updatedById         String?
+
+  createdBy           User?         @relation("ContractorCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?         @relation("ContractorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  users               User[]        @relation("UserContractor")
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Project {
+  id                  String        @id @default(cuid())
+  // Unique among projects that are not deleted, ignoring case: partial index in the migration.
+  number              String
+  name                String
+  customerId          String
+
+  // The site address.
+  street              String
+  houseNumber         Int
+  houseNumberAddition String?
+  postcode            String
+  city                String
+  country             String        @default("NL") @db.Char(2)
+
+  // A calendar date, like CompanyProfile.registeredOn.
+  startDate           DateTime      @db.Date
+  description         String?
+
+  // Without VAT, in euros; the amount with VAT is calculated, not stored.
+  budgetAmount        Decimal?      @db.Decimal(14, 2)
+  vatRate             VatRate?
+  budgetHours         Decimal?      @db.Decimal(10, 2)
+
+  status              ProjectStatus @default(IN_PROGRESS)
+  closedAt            DateTime?
+  closedById          String?
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  createdById         String?
+  updatedById         String?
+  deletedAt           DateTime?
+
+  customer            Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  closedBy            User?         @relation("ProjectClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  createdBy           User?         @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?         @relation("ProjectUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status, startDate])
+  @@index([customerId])
+  @@index([name])
 }

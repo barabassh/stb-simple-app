@@ -9,12 +9,13 @@ import type { ActionFailure, ActionResult } from "@/lib/action-result";
 import { diffEntity, logAudit } from "@/lib/audit";
 import { authorizedAction, type ActionActor } from "@/lib/auth/authorized-action";
 import { db } from "@/lib/db";
+import { isBlankAddress } from "@/lib/nl/schemas";
 import { getClientInfo } from "@/lib/request-info";
 
 import { companyAuditSnapshot } from "./audit";
 import { companyFormValues } from "./form-values";
 import { findCompanyProfile } from "./queries";
-import { companyFormSchema, isBlankAddress, type CompanyFormValues } from "./schemas";
+import { companyFormSchema, type CompanyFormValues } from "./schemas";
 
 const SETTINGS_PATH = "/settings";
 

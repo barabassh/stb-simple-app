@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { companyFormSchema, type CompanyFormInput } from "@/features/company/schemas";
 import ru from "../../messages/ru.json";
 
+/** Formats and address rules shared with other forms report keys of the `validation` section. */
+const messageKey = (key: string) =>
+  key in ru.validation ? `validation.${key}` : `settings.company.validation.${key}`;
+
 const address = {
   street: "de Geerenweg",
   houseNumber: "4",
@@ -121,7 +125,7 @@ describe("companyFormSchema: required fields", () => {
 
   it("rejects a legal form that is not in the list", () => {
     expect(messagesFor(parse({ legalForm: "LTD" } as never))).toEqual([
-      ["legalForm", "settings.company.validation.optionInvalid"],
+      ["legalForm", "validation.optionInvalid"],
     ]);
   });
 
@@ -132,12 +136,12 @@ describe("companyFormSchema: required fields", () => {
     expect(
       messagesFor(parse({ officeAddress: started, postalSameAsOffice: false, postalAddress })),
     ).toEqual([
-      ["officeAddress.street", "settings.company.validation.streetLength"],
-      ["officeAddress.houseNumber", "settings.company.validation.houseNumberInvalid"],
-      ["officeAddress.postcode", "settings.company.validation.postcodeRequired"],
-      ["postalAddress.street", "settings.company.validation.streetLength"],
-      ["postalAddress.houseNumber", "settings.company.validation.houseNumberInvalid"],
-      ["postalAddress.postcode", "settings.company.validation.postcodeRequired"],
+      ["officeAddress.street", "validation.streetLength"],
+      ["officeAddress.houseNumber", "validation.houseNumberInvalid"],
+      ["officeAddress.postcode", "validation.postcodeRequired"],
+      ["postalAddress.street", "validation.streetLength"],
+      ["postalAddress.houseNumber", "validation.houseNumberInvalid"],
+      ["postalAddress.postcode", "validation.postcodeRequired"],
     ]);
   });
 
@@ -152,9 +156,7 @@ describe("companyFormSchema: required fields", () => {
     ["S".repeat(101), "statutorySeat", "statutorySeatTooLong"],
     ["S".repeat(1001), "activityDescription", "activityDescriptionTooLong"],
   ])("limits the length of %j in %s", (value, field, key) => {
-    expect(messagesFor(parse({ [field]: value }))).toEqual([
-      [field, `settings.company.validation.${key}`],
-    ]);
+    expect(messagesFor(parse({ [field]: value }))).toEqual([[field, messageKey(key)]]);
   });
 });
 
@@ -168,9 +170,7 @@ describe("companyFormSchema: registration date", () => {
     ["2026-02-30", "dateInvalid"],
     ["17.09.2026", "dateInvalid"],
   ])("rejects %j", (registeredOn, key) => {
-    expect(messagesFor(parse({ registeredOn }))).toEqual([
-      ["registeredOn", `settings.company.validation.${key}`],
-    ]);
+    expect(messagesFor(parse({ registeredOn }))).toEqual([["registeredOn", messageKey(key)]]);
   });
 });
 
@@ -205,9 +205,7 @@ describe("companyFormSchema: registration and tax numbers", () => {
     ["vatNumber", "NL00502594B57", "vatNumberFormat"],
     ["payrollTaxNumber", "123456789B01", "payrollTaxNumberFormat"],
   ])("rejects %s %j with one message", (field, value, key) => {
-    expect(messagesFor(parse({ [field]: value }))).toEqual([
-      [field, `settings.company.validation.${key}`],
-    ]);
+    expect(messagesFor(parse({ [field]: value }))).toEqual([[field, messageKey(key)]]);
   });
 });
 
@@ -223,7 +221,7 @@ describe("companyFormSchema: addresses", () => {
 
   it.each(["0123 AB", "1234 SS", "12345"])("rejects the Dutch postcode %j", (postcode) => {
     expect(messagesFor(parse({ officeAddress: { ...address, postcode } }))).toEqual([
-      ["officeAddress.postcode", "settings.company.validation.postcodeNl"],
+      ["officeAddress.postcode", "validation.postcodeNl"],
     ]);
   });
 
@@ -233,10 +231,10 @@ describe("companyFormSchema: addresses", () => {
     );
     expect(
       messagesFor(parse({ officeAddress: { ...address, postcode: "1", country: "DE" } })),
-    ).toEqual([["officeAddress.postcode", "settings.company.validation.postcodeForeign"]]);
+    ).toEqual([["officeAddress.postcode", "validation.postcodeForeign"]]);
     expect(
       messagesFor(parse({ officeAddress: { ...address, postcode: "12_45", country: "DE" } })),
-    ).toEqual([["officeAddress.postcode", "settings.company.validation.postcodeForeign"]]);
+    ).toEqual([["officeAddress.postcode", "validation.postcodeForeign"]]);
   });
 
   it.each([
@@ -249,7 +247,7 @@ describe("companyFormSchema: addresses", () => {
     ["country", "US", "countryRequired"],
   ])("rejects the office %s %j", (field, value, key) => {
     expect(messagesFor(parse({ officeAddress: { ...address, [field]: value } }))).toEqual([
-      [`officeAddress.${field}`, `settings.company.validation.${key}`],
+      [`officeAddress.${field}`, messageKey(key)],
     ]);
   });
 
@@ -296,8 +294,8 @@ describe("companyFormSchema: addresses", () => {
     };
 
     expect(messagesFor(parse({ postalSameAsOffice: false, postalAddress }))).toEqual([
-      ["postalAddress.postbus", "settings.company.validation.postbusInvalid"],
-      ["postalAddress.postcode", "settings.company.validation.postcodeRequired"],
+      ["postalAddress.postbus", "validation.postbusInvalid"],
+      ["postalAddress.postcode", "validation.postcodeRequired"],
     ]);
   });
 
@@ -327,7 +325,7 @@ describe("companyFormSchema: addresses", () => {
     };
 
     expect(messagesFor(parse({ postalSameAsOffice: false, postalAddress }))).toEqual([
-      ["postalAddress.postcode", "settings.company.validation.postcodeNl"],
+      ["postalAddress.postcode", "validation.postcodeNl"],
     ]);
   });
 
@@ -348,7 +346,7 @@ describe("companyFormSchema: addresses", () => {
 
     expect(messagesFor(parse({ warehouses }))).toEqual([
       ["warehouses.0.name", "settings.company.validation.warehouseNameTooLong"],
-      ["warehouses.0.postcode", "settings.company.validation.postcodeNl"],
+      ["warehouses.0.postcode", "validation.postcodeNl"],
     ]);
   });
 });
@@ -363,15 +361,11 @@ describe("companyFormSchema: contacts", () => {
   });
 
   it("rejects an invalid main phone", () => {
-    expect(messagesFor(parse({ phone: "06 123" }))).toEqual([
-      ["phone", "settings.company.validation.phoneInvalid"],
-    ]);
+    expect(messagesFor(parse({ phone: "06 123" }))).toEqual([["phone", "validation.phoneInvalid"]]);
   });
 
   it("rejects an invalid email", () => {
-    expect(messagesFor(parse({ email: "info@" }))).toEqual([
-      ["email", "settings.company.validation.emailInvalid"],
-    ]);
+    expect(messagesFor(parse({ email: "info@" }))).toEqual([["email", "validation.emailInvalid"]]);
   });
 
   it("accepts up to 5 additional phones and checks each", () => {
@@ -383,7 +377,7 @@ describe("companyFormSchema: contacts", () => {
     ]);
     expect(messagesFor(parse({ phones: [{ label: "S".repeat(51), number: "06 123" }] }))).toEqual([
       ["phones.0.label", "settings.company.validation.phoneLabelTooLong"],
-      ["phones.0.number", "settings.company.validation.phoneInvalid"],
+      ["phones.0.number", "validation.phoneInvalid"],
     ]);
   });
 
@@ -426,7 +420,7 @@ describe("companyFormSchema: contacts", () => {
     const socialLinks = [{ network: "MYSPACE", url: "http://facebook.com/smartzaken" }];
 
     expect(messagesFor(parse({ socialLinks } as never))).toEqual([
-      ["socialLinks.0.network", "settings.company.validation.optionInvalid"],
+      ["socialLinks.0.network", "validation.optionInvalid"],
       ["socialLinks.0.url", "settings.company.validation.socialLinkInvalid"],
     ]);
   });
@@ -502,10 +496,14 @@ describe("companyFormSchema: activities", () => {
 // Runs last: the tests above collect every message the schema reported.
 describe("companyFormSchema: messages", () => {
   it("reports only translation keys that exist in messages/ru.json", () => {
-    const prefix = "settings.company.validation.";
-    const validation: Record<string, string> = ru.settings.company.validation;
-    const missing = [...reportedMessages].filter(
-      (key) => !key.startsWith(prefix) || !(key.slice(prefix.length) in validation),
+    const sections: Record<string, Record<string, string>> = {
+      "settings.company.validation.": ru.settings.company.validation,
+      "validation.": ru.validation,
+    };
+    const missing = [...reportedMessages].filter((key) =>
+      Object.entries(sections).every(
+        ([prefix, section]) => !key.startsWith(prefix) || !(key.slice(prefix.length) in section),
+      ),
     );
 
     expect(reportedMessages.size).toBeGreaterThan(30);

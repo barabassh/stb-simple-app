@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatAddress } from "@/features/company/address";
+import { formatAddress } from "@/lib/nl/address";
 
 describe("formatAddress", () => {
   it("writes a Dutch address in the Dutch order without the country", () => {

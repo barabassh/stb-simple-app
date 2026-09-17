@@ -1,8 +1,9 @@
 import type { AuditValue } from "@/lib/audit";
 import { formatCalendarDate } from "@/lib/format";
+import { formatAddress, type AddressParts } from "@/lib/nl/address";
+import { isBlankAddress } from "@/lib/nl/schemas";
 
-import { formatAddress, type AddressParts } from "./address";
-import { isBlankAddress, type CompanyFormInput } from "./schemas";
+import type { CompanyFormInput } from "./schemas";
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;
 

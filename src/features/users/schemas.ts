@@ -81,7 +81,24 @@ export const resetPasswordSchema = z
   .object({ login: z.string(), password: passwordField })
   .refine(passwordDiffersFromLogin, passwordSameAsLogin);
 
+/**
+ * The contractor an account belongs to (docs/ТЗ.md, 6.5). Only an account with the CONTRACTOR role
+ * has one; the action clears the link in the same transaction when the role changes.
+ */
+export const contractorLinkSchema = z
+  .object({
+    role: z.enum(Role, { error: "users.validation.roleRequired" }),
+    contractorId: z.union([z.cuid("users.validation.contractorInvalid"), z.literal("")], {
+      error: "users.validation.contractorInvalid",
+    }),
+  })
+  .refine(({ role, contractorId }) => contractorId === "" || role === "CONTRACTOR", {
+    error: "users.validation.contractorRoleOnly",
+    path: ["contractorId"],
+  });
+
 export type CreateUserInput = z.input<typeof createUserSchema>;
 export type UpdateUserInput = z.input<typeof updateUserSchema>;
 export type ProfileInput = z.input<typeof profileSchema>;
 export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;
+export type ContractorLinkInput = z.input<typeof contractorLinkSchema>;

@@ -15,7 +15,7 @@ import {
   normalizePostcode,
   passesElfproef,
   websiteUrl,
-} from "@/features/company/nl-identifiers";
+} from "@/lib/nl/identifiers";
 
 describe("normalizeIdentifier", () => {
   it("removes spaces and dots and upper-cases letters", () => {

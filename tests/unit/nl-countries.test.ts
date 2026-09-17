@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { COUNTRY_CODES, countryName, countryOptions } from "@/features/company/countries";
+import { COUNTRY_CODES, countryName, countryOptions } from "@/lib/nl/countries";
 
-describe("company countries", () => {
+describe("countries", () => {
   it("offers the Netherlands, the other 26 EU members, GB, CH, NO and UA", () => {
     expect(COUNTRY_CODES).toHaveLength(31);
     expect(new Set(COUNTRY_CODES).size).toBe(31);

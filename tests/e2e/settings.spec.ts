@@ -46,7 +46,7 @@ test("a KvK number of seven digits is reported under its field and keeps the dia
     .locator('[data-slot="field"]')
     .filter({ has: page.getByLabel(company.fields.kvkNumber) });
   await expect(kvkField.locator('[data-slot="field-error"]')).toHaveText(
-    company.validation.kvkNumberInvalid,
+    messages.validation.kvkNumberInvalid,
   );
   await expect(kvkNumber).toHaveAttribute("aria-invalid", "true");
   await expect(dialog).toBeVisible();

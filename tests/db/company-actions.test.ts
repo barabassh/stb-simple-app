@@ -111,11 +111,11 @@ describe("saveCompanyProfile", () => {
       ok: false,
       fieldErrors: {
         legalName: ["settings.company.validation.legalNameLength"],
-        kvkNumber: ["settings.company.validation.kvkNumberInvalid"],
+        kvkNumber: ["validation.kvkNumberInvalid"],
         rsin: ["settings.company.validation.rsinChecksum"],
-        vatId: ["settings.company.validation.vatNumberFormat"],
-        "officeAddress.postcode": ["settings.company.validation.postcodeNl"],
-        "warehouses.0.postcode": ["settings.company.validation.postcodeNl"],
+        vatId: ["validation.vatNumberFormat"],
+        "officeAddress.postcode": ["validation.postcodeNl"],
+        "warehouses.0.postcode": ["validation.postcodeNl"],
         website: ["settings.company.validation.websiteInvalid"],
       },
     });

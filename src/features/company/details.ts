@@ -1,8 +1,8 @@
 import { formatCalendarDate } from "@/lib/format";
+import { formatAddress } from "@/lib/nl/address";
+import { isHttpsUrl, websiteUrl } from "@/lib/nl/identifiers";
 
-import { formatAddress } from "./address";
 import type { CompanyProfileRecord } from "./form-values";
-import { isHttpsUrl, websiteUrl } from "./nl-identifiers";
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;
 
