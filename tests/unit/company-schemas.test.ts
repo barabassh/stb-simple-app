@@ -12,6 +12,15 @@ const address = {
   country: "NL",
 } as const;
 
+const emptyAddress = {
+  street: "",
+  houseNumber: "",
+  houseNumberAddition: "",
+  postcode: "",
+  city: "",
+  country: "NL",
+} as const;
+
 const emptyPostalAddress = {
   isPostbus: false,
   street: "",
@@ -94,30 +103,41 @@ describe("companyFormSchema: required fields", () => {
     expect(companyFormSchema.parse(parsed)).toEqual(parsed);
   });
 
-  it("reports every missing required field at once", () => {
-    const result = companyFormSchema.safeParse({
+  it("requires only the company name", () => {
+    const onlyName = {
       ...minimalCompany,
-      legalName: "",
-      legalForm: "",
-      officeAddress: { ...address, street: "", houseNumber: "", postcode: "", city: "" },
+      legalForm: undefined,
+      officeAddress: emptyAddress,
       email: "",
       phone: "",
       postalSameAsOffice: false,
-    });
+    };
 
-    expect(messagesFor(result)).toEqual([
+    expect(companyFormSchema.safeParse(onlyName).success).toBe(true);
+    expect(messagesFor(companyFormSchema.safeParse({ ...onlyName, legalName: "" }))).toEqual([
       ["legalName", "settings.company.validation.legalNameLength"],
-      ["legalForm", "settings.company.validation.legalFormRequired"],
+    ]);
+  });
+
+  it("rejects a legal form that is not in the list", () => {
+    expect(messagesFor(parse({ legalForm: "LTD" } as never))).toEqual([
+      ["legalForm", "settings.company.validation.optionInvalid"],
+    ]);
+  });
+
+  it("requires the rest of an office or postal address once it is started", () => {
+    const started = { ...address, street: "", houseNumber: "", postcode: "", city: "Baarn" };
+    const postalAddress = { ...emptyPostalAddress, ...started };
+
+    expect(
+      messagesFor(parse({ officeAddress: started, postalSameAsOffice: false, postalAddress })),
+    ).toEqual([
       ["officeAddress.street", "settings.company.validation.streetLength"],
       ["officeAddress.houseNumber", "settings.company.validation.houseNumberInvalid"],
       ["officeAddress.postcode", "settings.company.validation.postcodeRequired"],
-      ["officeAddress.city", "settings.company.validation.cityLength"],
-      ["email", "settings.company.validation.emailInvalid"],
-      ["phone", "settings.company.validation.phoneRequired"],
       ["postalAddress.street", "settings.company.validation.streetLength"],
       ["postalAddress.houseNumber", "settings.company.validation.houseNumberInvalid"],
       ["postalAddress.postcode", "settings.company.validation.postcodeRequired"],
-      ["postalAddress.city", "settings.company.validation.cityLength"],
     ]);
   });
 
@@ -267,14 +287,34 @@ describe("companyFormSchema: addresses", () => {
     expect(parse({ postalSameAsOffice: false, postalAddress }).success).toBe(true);
   });
 
-  it("requires the PO box number, postcode and city of a PO box", () => {
-    const postalAddress = { ...emptyPostalAddress, isPostbus: true, street: "ignored" };
+  it("requires the PO box number and postcode of a started PO box", () => {
+    const postalAddress = {
+      ...emptyPostalAddress,
+      isPostbus: true,
+      street: "ignored",
+      city: "Amsterdam",
+    };
 
     expect(messagesFor(parse({ postalSameAsOffice: false, postalAddress }))).toEqual([
       ["postalAddress.postbus", "settings.company.validation.postbusInvalid"],
       ["postalAddress.postcode", "settings.company.validation.postcodeRequired"],
-      ["postalAddress.city", "settings.company.validation.cityLength"],
     ]);
+  });
+
+  it("accepts an empty postal address that differs from the office", () => {
+    const postalAddress = { ...emptyPostalAddress, isPostbus: true, street: "ignored" };
+
+    expect(parse({ postalSameAsOffice: false, postalAddress }).success).toBe(true);
+  });
+
+  it("keeps a partly filled warehouse and drops blank ones", () => {
+    const blank = { ...emptyAddress, name: "" };
+    const parsed = companyFormSchema.parse({
+      ...minimalCompany,
+      warehouses: [blank, { ...blank, name: "Rotterdam", city: "Rotterdam" }, blank],
+    });
+
+    expect(parsed.warehouses).toMatchObject([{ name: "Rotterdam", city: "Rotterdam", street: "" }]);
   });
 
   it("checks the postal postcode against its own country", () => {
@@ -341,9 +381,20 @@ describe("companyFormSchema: contacts", () => {
     expect(messagesFor(parse({ phones: [...phones, phones[0]] }))).toEqual([
       ["phones", "settings.company.validation.phonesTooMany"],
     ]);
-    expect(messagesFor(parse({ phones: [{ label: "S".repeat(51), number: "" }] }))).toEqual([
+    expect(messagesFor(parse({ phones: [{ label: "S".repeat(51), number: "06 123" }] }))).toEqual([
       ["phones.0.label", "settings.company.validation.phoneLabelTooLong"],
-      ["phones.0.number", "settings.company.validation.phoneRequired"],
+      ["phones.0.number", "settings.company.validation.phoneInvalid"],
+    ]);
+  });
+
+  it("keeps a phone row with only a label and drops blank rows", () => {
+    const phones = [
+      { label: "", number: "" },
+      { label: "Склад", number: "" },
+    ];
+
+    expect(companyFormSchema.parse({ ...minimalCompany, phones }).phones).toEqual([
+      { label: "Склад", number: "" },
     ]);
   });
 
@@ -371,12 +422,23 @@ describe("companyFormSchema: contacts", () => {
     ]);
   });
 
-  it("rejects a social link that is not https or has no network", () => {
-    const socialLinks = [{ network: "", url: "http://facebook.com/smartzaken" }];
+  it("rejects a social link that is not https or has an unknown network", () => {
+    const socialLinks = [{ network: "MYSPACE", url: "http://facebook.com/smartzaken" }];
 
     expect(messagesFor(parse({ socialLinks } as never))).toEqual([
-      ["socialLinks.0.network", "settings.company.validation.socialNetworkRequired"],
+      ["socialLinks.0.network", "settings.company.validation.optionInvalid"],
       ["socialLinks.0.url", "settings.company.validation.socialLinkInvalid"],
+    ]);
+  });
+
+  it("keeps a social link without a network and drops blank rows", () => {
+    const socialLinks = [
+      { network: "", url: "" },
+      { network: "", url: "https://www.linkedin.com/company/smartzaken" },
+    ];
+
+    expect(companyFormSchema.parse({ ...minimalCompany, socialLinks }).socialLinks).toEqual([
+      { url: "https://www.linkedin.com/company/smartzaken" },
     ]);
   });
 });
@@ -396,6 +458,21 @@ describe("companyFormSchema: activities", () => {
     expect(
       messagesFor(parse({ activities: [activity("4120", true), activity("43221", true)] })),
     ).toEqual([["activities", "settings.company.validation.mainActivityNotUnique"]]);
+  });
+
+  it("drops blank activities before checking the main one", () => {
+    const blankMain = { sbiCode: "", description: "", isMain: true };
+
+    expect(
+      companyFormSchema.parse({ ...minimalCompany, activities: [blankMain] }).activities,
+    ).toEqual([]);
+    expect(messagesFor(parse({ activities: [blankMain, activity("4120")] }))).toEqual([
+      ["activities", "settings.company.validation.mainActivityRequired"],
+    ]);
+    const described = { sbiCode: "", description: "Bouw", isMain: true };
+    expect(
+      companyFormSchema.parse({ ...minimalCompany, activities: [described] }).activities,
+    ).toEqual([described]);
   });
 
   it("rejects a repeated SBI code at the repetition", () => {

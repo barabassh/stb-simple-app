@@ -42,6 +42,16 @@ export function formatDateTime(value: DateInput | null | undefined): string {
   return `${day}.${month}.${year} ${hour}:${minute}`;
 }
 
+/**
+ * `dd.MM.yyyy` of a calendar date stored without a time (`@db.Date`), read in UTC: converting it
+ * to Europe/Kyiv would treat midnight as an instant and could shift the day.
+ */
+export function formatCalendarDate(value: Date | null | undefined): string {
+  if (value == null) return "";
+  const [year, month, day] = value.toISOString().slice(0, 10).split("-");
+  return `${day}.${month}.${year}`;
+}
+
 /** Today's date in Europe/Kyiv as `yyyy-MM-dd`, the value a date input holds. */
 export function displayTodayIso(now: DateInput = Date.now()): string {
   const { day, month, year } = toParts(now);

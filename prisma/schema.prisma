@@ -153,7 +153,7 @@ model CompanyProfile {
 
   legalName           String
   tradeName           String?
-  legalForm           LegalForm
+  legalForm           LegalForm?
   // A calendar date from the KvK extract; converting it to a time zone would shift the day.
   registeredOn        DateTime?  @db.Date
   statutorySeat       String?
@@ -165,8 +165,8 @@ model CompanyProfile {
   vatNumber           String?
   payrollTaxNumber    String?
 
-  email               String
-  phone               String
+  email               String?
+  phone               String?
   website             String?
   activityDescription String?
   postalSameAsOffice  Boolean    @default(true)
@@ -200,8 +200,8 @@ model CompanyAddress {
   houseNumber         Int?
   houseNumberAddition String?
   postbus             String?
-  postcode            String
-  city                String
+  postcode            String?
+  city                String?
   // ISO 3166-1 alpha-2; names come from Intl.DisplayNames.
   country             String             @default("NL") @db.Char(2)
   sortOrder           Int                @default(0)
@@ -226,7 +226,7 @@ model CompanyPhone {
   id        String         @id @default(cuid())
   companyId String
   label     String?
-  number    String
+  number    String?
   sortOrder Int
 
   company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -237,8 +237,8 @@ model CompanyPhone {
 model CompanySocialLink {
   id        String         @id @default(cuid())
   companyId String
-  network   SocialNetwork
-  url       String
+  network   SocialNetwork?
+  url       String?
   sortOrder Int
 
   company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -249,8 +249,8 @@ model CompanySocialLink {
 model CompanyActivity {
   id          String         @id @default(cuid())
   companyId   String
-  sbiCode     String
-  description String
+  sbiCode     String?
+  description String?
   isMain      Boolean        @default(false)
   sortOrder   Int
 

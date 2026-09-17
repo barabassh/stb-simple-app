@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   displayDayRange,
   displayTodayIso,
+  formatCalendarDate,
   formatDate,
   formatDateTime,
   formatNumber,
@@ -31,6 +32,13 @@ describe("formatDateTime", () => {
 
   it("applies winter time (UTC+2) and a 24-hour clock", () => {
     expect(formatDateTime("2026-01-15T22:30:00Z")).toBe("16.01.2026 00:30");
+  });
+});
+
+describe("formatCalendarDate", () => {
+  it("formats a stored date by its UTC day", () => {
+    expect(formatCalendarDate(new Date("2026-03-01T00:00:00Z"))).toBe("01.03.2026");
+    expect(formatCalendarDate(null)).toBe("");
   });
 });
 

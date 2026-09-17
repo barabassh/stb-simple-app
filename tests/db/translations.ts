@@ -7,6 +7,7 @@ export const t = createTranslator({ locale: "ru", messages });
 
 /** Stands in for `next-intl/server`, whose request configuration exists only inside Next.js. */
 export const nextIntlServer = {
+  getLocale: async () => "ru",
   getTranslations: async (namespace?: string) =>
     createTranslator({ locale: "ru", messages, namespace: namespace as never }),
 };
