@@ -5,6 +5,8 @@ import { testDatabaseUrl } from "./tests/support/test-database";
 // A server of its own on another port: the one started by `npm run dev` uses the developer's database.
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
+// Checks of the phone layout, which run on the 360 px profile alone.
+const MOBILE_ONLY = "settings-mobile.spec.ts";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -24,10 +26,14 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "chromium", testIgnore: MOBILE_ONLY, use: { ...devices["Desktop Chrome"] } },
     // The engine of Safari, which docs/ТЗ.md (3.2) lists among the supported browsers.
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
-    { name: "mobile-360", testMatch: "login.spec.ts", use: { ...devices["Galaxy S8"] } },
+    { name: "webkit", testIgnore: MOBILE_ONLY, use: { ...devices["Desktop Safari"] } },
+    {
+      name: "mobile-360",
+      testMatch: ["login.spec.ts", MOBILE_ONLY],
+      use: { ...devices["Galaxy S8"] },
+    },
   ],
   webServer: {
     command: `npm run dev -- --port ${PORT}`,

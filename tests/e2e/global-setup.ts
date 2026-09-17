@@ -17,6 +17,8 @@ const PAGES = [
   "/users/{id}",
   "/users/{id}/edit",
   "/profile",
+  "/settings",
+  "/settings/company/history",
   "/forbidden",
   // Where a browser with a revoked session is sent; with a live one it leads home.
   "/api/auth/clear-session",

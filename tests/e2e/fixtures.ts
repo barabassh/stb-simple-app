@@ -73,6 +73,27 @@ export async function signIn(page: Page, { login, password }: Credentials): Prom
   await page.getByRole("button", { name: messages.auth.login.submit }).click();
 }
 
+const company = messages.settings.company;
+
+/**
+ * Opens the company profile dialog from /settings: "Fill in" while there is no profile, "Edit"
+ * once there is. Tests that do not save take whichever the page shows, since a test in another
+ * worker may be saving or deleting the profile meanwhile.
+ */
+export async function openCompanyDialog(page: Page): Promise<Locator> {
+  await page.goto("/settings");
+  const open = page
+    .getByRole("button", { name: company.fill, exact: true })
+    .or(page.getByRole("button", { name: company.edit, exact: true }));
+  await waitForHydration(open);
+  await open.click();
+
+  const dialog = page.getByRole("dialog", { name: company.dialog.title });
+  // The dialog moves the focus there once it is ready for input.
+  await expect(dialog.getByLabel(company.fields.legalName)).toBeFocused();
+  return dialog;
+}
+
 type NewUser = { role?: Role };
 
 // Users are inserted with plain SQL: Playwright loads tests as CommonJS, and the generated Prisma
@@ -105,4 +126,28 @@ export const test = base.extend<
       return { id, login, fullName, role, password: PASSWORD };
     });
   },
+});
+
+/**
+ * For tests that save the company profile. There is one profile per database, and the Chromium
+ * and WebKit projects run the same file in different workers at once, so neither serial mode nor
+ * a single worker per file keeps them apart: a database lock does, across workers and projects.
+ * The profile is deleted under the lock, so every such test starts from the empty state.
+ */
+export const companyProfileTest = test.extend<{ emptyCompanyProfile: void }>({
+  emptyCompanyProfile: [
+    async ({ database }, provide) => {
+      const client = await database.connect();
+      try {
+        await client.query(`SELECT pg_advisory_lock(hashtext('e2e.CompanyProfile'))`);
+        await client.query(`DELETE FROM "CompanyProfile"`);
+        await provide();
+      } finally {
+        // Closing the connection releases the lock even if the unlock itself was not reached.
+        client.release(true);
+      }
+    },
+    // Waiting for the tests of the other project is not part of a test's own time.
+    { auto: true, timeout: 300_000 },
+  ],
 });
