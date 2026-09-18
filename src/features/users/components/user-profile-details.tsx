@@ -24,6 +24,7 @@ export function UserProfileDetails({ user, canOpenContractor }: UserProfileDetai
   const rows: UserFieldRow[] = [
     { key: "login", value: user.login },
     { key: "fullName", value: user.fullName },
+    { key: "nickname", value: user.nickname },
     { key: "position", value: user.position },
     { key: "email", value: user.email },
     { key: "phone", value: user.phone },

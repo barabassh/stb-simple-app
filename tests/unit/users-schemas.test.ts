@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  contractorLinkSchema,
+  createUserFormSchema,
   createUserSchema,
+  editUserFormSchema,
+  editUserWithContractorFormSchema,
   profileSchema,
   resetPasswordSchema,
   updateUserSchema,
@@ -11,6 +15,8 @@ const validUser = {
   login: "ivanov",
   password: "Secret12345",
   fullName: "Ivan Ivanov",
+  nickname: "Ivan",
+  nicknameEdited: false,
   position: "",
   email: "",
   phone: "",
@@ -112,6 +118,7 @@ describe("profileSchema", () => {
     expect(Object.keys(profileSchema.parse(validUser)).sort()).toEqual([
       "email",
       "fullName",
+      "nickname",
       "phone",
       "position",
     ]);
@@ -123,5 +130,30 @@ describe("resetPasswordSchema", () => {
     const result = resetPasswordSchema.safeParse({ login: "petrov2026a", password: "PETROV2026A" });
 
     expect(messagesFor(result)).toEqual([["password", "users.validation.passwordSameAsLogin"]]);
+  });
+});
+
+describe("the organisation of a contractor account", () => {
+  const required = [["contractorId", "users.validation.contractorRequired"]];
+  const contractorForm = { ...validUser, role: "CONTRACTOR", contractorId: "" } as const;
+
+  it("is required by the server schema and the forms of those who may link it", () => {
+    expect(
+      messagesFor(contractorLinkSchema.safeParse({ role: "CONTRACTOR", contractorId: "" })),
+    ).toEqual(required);
+    expect(messagesFor(createUserFormSchema.safeParse(contractorForm))).toEqual(required);
+    expect(messagesFor(editUserWithContractorFormSchema.safeParse(contractorForm))).toEqual(
+      required,
+    );
+  });
+
+  it("is not asked of a manager, whose form has no such field", () => {
+    expect(editUserFormSchema.safeParse(contractorForm).success).toBe(true);
+  });
+
+  it("is not needed for another role", () => {
+    expect(contractorLinkSchema.safeParse({ role: "EMPLOYEE", contractorId: "" }).success).toBe(
+      true,
+    );
   });
 });

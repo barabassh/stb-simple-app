@@ -12,7 +12,7 @@ import { authorizedAction } from "@/lib/auth/authorized-action";
 import { hashPassword } from "@/lib/auth/password";
 import { invalidateAllUserSessions, invalidateSession, type SessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { requirePermission, userUpdatePermission } from "@/lib/permissions";
+import { can, requirePermission, userUpdatePermission } from "@/lib/permissions";
 import { getClientInfo } from "@/lib/request-info";
 import { describeUserAgent } from "@/lib/user-agent";
 
@@ -47,6 +47,10 @@ const contractorInvalid: ActionFailure = {
 const contractorArchived: ActionFailure = {
   ok: false,
   fieldErrors: { contractorId: ["users.validation.contractorArchived"] },
+};
+const contractorRequired: ActionFailure = {
+  ok: false,
+  fieldErrors: { contractorId: ["users.validation.contractorRequired"] },
 };
 
 /** The field errors of every schema the input failed, each message once. */
@@ -88,15 +92,23 @@ type ContractorLink = { contractorId: string | null; contractor: { name: string 
  * The contractor the saved account is linked to. Only a contractor account has one, so another
  * role clears it. A newly chosen contractor must be active; an archived one the account is already
  * linked to stays (docs/ПРАВА-ДОСТУПА.md, 13).
+ *
+ * A contractor account must have one (docs/ТЗ.md, 6.5), but only those who may link it are made
+ * to choose: a manager, who does not see the field, still edits the profile of an account created
+ * before stage 4 without one.
  */
 async function resolveContractorLink(
   tx: Prisma.TransactionClient,
+  actor: SessionUser,
   role: Role,
   requested: string | null | undefined,
   current: ContractorLink,
 ): Promise<ContractorLink | ActionFailure> {
   const kept = requested === undefined ? current.contractorId : requested;
   const contractorId = role === "CONTRACTOR" ? kept : null;
+  if (contractorId === null && role === "CONTRACTOR" && can(actor, "users.changeContractor")) {
+    return contractorRequired;
+  }
   if (contractorId === current.contractorId) {
     return { contractorId, contractor: current.contractor };
   }
@@ -145,16 +157,24 @@ async function lockActiveAdminIds(tx: Prisma.TransactionClient): Promise<string[
 }
 
 /**
+ * Held until the transaction ends by every write of a nickname, so that a default nickname is
+ * chosen among the committed ones: two users with the same first name created at once would
+ * otherwise both get it, and a nickname typed at the same moment would fail the unique index.
+ */
+async function lockNicknames(tx: Prisma.TransactionClient): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('User.nickname'))`;
+}
+
+/**
  * The first free default nickname (docs/ТЗ.md, 7.4). Every candidate starts with the first one or
- * with the login, so only the nicknames starting with those are read. The lock, held until the
- * transaction ends, keeps two users with the same first name created at once from both getting it.
+ * with the login, so only the nicknames starting with those are read.
  */
 async function freeDefaultNickname(
   tx: Prisma.TransactionClient,
   fullName: string,
   login: string,
 ): Promise<string> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('User.nickname'))`;
+  await lockNicknames(tx);
   const [first = login] = nicknameCandidates(fullName, login);
   const taken = await tx.user.findMany({
     where: {
@@ -178,17 +198,24 @@ function isLastActiveAdmin(adminIds: string[], userId: string): boolean {
  */
 async function uniqueViolation(
   error: unknown,
-  { login, email, userId }: { login?: string; email: string | null; userId?: string },
+  {
+    login,
+    email,
+    nickname,
+    userId,
+  }: { login?: string; email: string | null; nickname?: string; userId?: string },
 ): Promise<ActionFailure | null> {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
     return null;
   }
 
-  const [loginOwner, emailOwner] = await Promise.all([
+  const others = userId ? { id: { not: userId } } : {};
+  const [loginOwner, emailOwner, nicknameOwner] = await Promise.all([
     login ? db.user.findUnique({ where: { login }, select: { id: true } }) : null,
-    email
+    email ? db.user.findFirst({ where: { email, ...others }, select: { id: true } }) : null,
+    nickname
       ? db.user.findFirst({
-          where: { email, ...(userId ? { id: { not: userId } } : {}) },
+          where: { nickname: { equals: nickname, mode: "insensitive" }, ...others },
           select: { id: true },
         })
       : null,
@@ -197,6 +224,7 @@ async function uniqueViolation(
   const fieldErrors: Record<string, string[]> = {};
   if (loginOwner) fieldErrors.login = ["users.errors.loginTaken"];
   if (emailOwner) fieldErrors.email = ["users.errors.emailTaken"];
+  if (nicknameOwner) fieldErrors.nickname = ["users.errors.nicknameTaken"];
 
   return Object.keys(fieldErrors).length > 0 ? { ok: false, fieldErrors } : null;
 }
@@ -207,25 +235,28 @@ export const createUser = authorizedAction(
     const link = parseContractorLink(actor, input);
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success || link.error) return validationFailure(parsed.error, link.error);
-    const { login, password, ...account } = parsed.data;
+    const { login, password, nicknameEdited, ...account } = parsed.data;
     const data = toAccountData(account);
     const passwordHash = await hashPassword(password);
     const { t, request } = await auditContext();
 
     try {
       const result = await db.$transaction(async (tx): Promise<ActionResult<{ id: string }>> => {
-        const contractor = await resolveContractorLink(tx, data.role, link.requested, {
+        const contractor = await resolveContractorLink(tx, actor, data.role, link.requested, {
           contractorId: null,
           contractor: null,
         });
         if (isFailure(contractor)) return contractor;
+        if (nicknameEdited) await lockNicknames(tx);
 
         const { id, ...created } = await tx.user.create({
           data: {
             ...data,
             contractorId: contractor.contractorId,
             login,
-            nickname: await freeDefaultNickname(tx, data.fullName, login),
+            nickname: nicknameEdited
+              ? data.nickname
+              : await freeDefaultNickname(tx, data.fullName, login),
             passwordHash,
             createdById: actor.id,
             updatedById: actor.id,
@@ -247,7 +278,11 @@ export const createUser = authorizedAction(
       if (result.ok) revalidatePath(USERS_PATH, "layout");
       return result;
     } catch (error) {
-      const failure = await uniqueViolation(error, { login, email: data.email });
+      const failure = await uniqueViolation(error, {
+        login,
+        email: data.email,
+        nickname: nicknameEdited ? data.nickname : undefined,
+      });
       if (failure) return failure;
       throw error;
     }
@@ -282,7 +317,13 @@ export const updateUser = authorizedAction(
         if (isLastActiveAdmin(adminIds, id) && (data.role !== "ADMIN" || !data.isActive)) {
           return lastAdmin;
         }
-        const contractor = await resolveContractorLink(tx, data.role, link.requested, target);
+        const contractor = await resolveContractorLink(
+          tx,
+          actor,
+          data.role,
+          link.requested,
+          target,
+        );
         if (isFailure(contractor)) return contractor;
 
         const changes = diffEntity(
@@ -292,6 +333,7 @@ export const updateUser = authorizedAction(
         // An unchanged form writes nothing, so "Изменено" keeps pointing at the last real change.
         if (changes.length === 0) return { ok: true };
 
+        if (data.nickname !== target.nickname) await lockNicknames(tx);
         await tx.user.update({
           where: { id },
           data: { ...data, contractorId: contractor.contractorId, updatedById: actor.id },
@@ -310,7 +352,11 @@ export const updateUser = authorizedAction(
       if (result.ok) revalidatePath(USERS_PATH, "layout");
       return result;
     } catch (error) {
-      const failure = await uniqueViolation(error, { email: data.email, userId: id });
+      const failure = await uniqueViolation(error, {
+        email: data.email,
+        nickname: data.nickname,
+        userId: id,
+      });
       if (failure) return failure;
       throw error;
     }
@@ -337,6 +383,7 @@ export const updateOwnProfile = authorizedAction(
         );
         if (changes.length === 0) return;
 
+        if (data.nickname !== target.nickname) await lockNicknames(tx);
         await tx.user.update({ where: { id: actor.id }, data: { ...data, updatedById: actor.id } });
         await logUserChanges(
           tx,
@@ -345,7 +392,11 @@ export const updateOwnProfile = authorizedAction(
         );
       });
     } catch (error) {
-      const failure = await uniqueViolation(error, { email: data.email, userId: actor.id });
+      const failure = await uniqueViolation(error, {
+        email: data.email,
+        nickname: data.nickname,
+        userId: actor.id,
+      });
       if (failure) return failure;
       throw error;
     }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { can, type Permission } from "@/lib/permissions";
+import { canAny, type Permission } from "@/lib/permissions";
 
 import { CLEAR_SESSION_PATH, FORBIDDEN_PATH, LOGIN_PATH } from "./constants";
 import {
@@ -35,9 +35,11 @@ export async function requireUser(): Promise<SessionUser> {
  * For pages of a section. Checked before any data is read, so that a user without access sees
  * the access denied page rather than an empty list (docs/ПРАВА-ДОСТУПА.md, 3.4).
  */
-export async function requirePagePermission(permission: Permission): Promise<SessionUser> {
+export async function requirePagePermission(
+  permission: Permission | readonly Permission[],
+): Promise<SessionUser> {
   const user = await requireUser();
-  if (!can(user, permission)) redirect(FORBIDDEN_PATH);
+  if (!canAny(user, [permission].flat())) redirect(FORBIDDEN_PATH);
   return user;
 }
 

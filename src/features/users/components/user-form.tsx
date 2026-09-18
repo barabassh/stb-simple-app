@@ -29,7 +29,13 @@ import { can } from "@/lib/permissions";
 import { createUser, updateUser } from "../actions";
 import { USER_ROLES } from "../list-params";
 import type { UserDetails } from "../queries";
-import { createUserFormSchema, editUserFormSchema, type UserFormInput } from "../schemas";
+import { suggestedNickname } from "../nickname";
+import {
+  createUserFormSchema,
+  editUserFormSchema,
+  editUserWithContractorFormSchema,
+  type UserFormInput,
+} from "../schemas";
 
 type UserFormProps = {
   /** The user being edited; omitted when creating one. */
@@ -44,6 +50,8 @@ function toFormValues(user: UserDetails | undefined): UserFormInput {
     login: user?.login ?? "",
     password: "",
     fullName: user?.fullName ?? "",
+    nickname: user?.nickname ?? "",
+    nicknameEdited: !!user,
     position: user?.position ?? "",
     email: user?.email ?? "",
     phone: user?.phone ?? "",
@@ -65,7 +73,13 @@ export function UserForm({ user, viewer, contractors }: UserFormProps) {
   const commentLocked = !!user && !can(viewer, "users.update");
 
   const form = useForm<UserFormInput>({
-    resolver: zodResolver(user ? editUserFormSchema : createUserFormSchema),
+    resolver: zodResolver(
+      !user
+        ? createUserFormSchema
+        : contractors
+          ? editUserWithContractorFormSchema
+          : editUserFormSchema,
+    ),
     defaultValues: toFormValues(user),
   });
   const { errors, isDirty, isSubmitting, isSubmitSuccessful } = form.formState;
@@ -113,6 +127,16 @@ export function UserForm({ user, viewer, contractors }: UserFormProps) {
 
   const fieldError = (message: string | undefined) => message && t(message);
 
+  // A new user's nickname follows the full name and the login until it is edited by hand
+  // (docs/ТЗ.md, 7.4); the action then picks the first free one of the same chain.
+  function suggestNickname() {
+    if (form.getValues("nicknameEdited")) return;
+    const { fullName, login } = form.getValues();
+    form.setValue("nickname", suggestedNickname(fullName, login), {
+      shouldValidate: form.formState.isSubmitted,
+    });
+  }
+
   return (
     <>
       <UnsavedChangesGuard when={isDirty && !isSubmitSuccessful} onSave={saveBeforeLeaving} />
@@ -130,7 +154,7 @@ export function UserForm({ user, viewer, contractors }: UserFormProps) {
                 spellCheck={false}
                 autoFocus
                 aria-invalid={!!errors.login}
-                {...form.register("login")}
+                {...form.register("login", { onChange: suggestNickname })}
               />
             )}
             <FieldDescription>
@@ -170,9 +194,23 @@ export function UserForm({ user, viewer, contractors }: UserFormProps) {
               id="fullName"
               autoComplete="off"
               aria-invalid={!!errors.fullName}
-              {...form.register("fullName")}
+              {...form.register("fullName", { onChange: user ? undefined : suggestNickname })}
             />
             <FieldError>{fieldError(errors.fullName?.message)}</FieldError>
+          </Field>
+
+          <Field data-invalid={!!errors.nickname}>
+            <FieldLabel htmlFor="nickname">{t("users.fields.nickname")}</FieldLabel>
+            <Input
+              id="nickname"
+              autoComplete="off"
+              aria-invalid={!!errors.nickname}
+              {...form.register("nickname", {
+                onChange: () => form.setValue("nicknameEdited", true),
+              })}
+            />
+            {!user && <FieldDescription>{t("users.form.nicknameHint")}</FieldDescription>}
+            <FieldError>{fieldError(errors.nickname?.message)}</FieldError>
           </Field>
 
           <Field data-invalid={!!errors.position}>

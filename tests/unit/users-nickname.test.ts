@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { describe, expect, it } from "vitest";
 
-import { defaultNickname, nicknameCandidates } from "@/features/users/nickname";
+import { defaultNickname, nicknameCandidates, suggestedNickname } from "@/features/users/nickname";
 import { nicknameSchema } from "@/features/users/schemas";
 
 import ru from "../../messages/ru.json";
@@ -117,5 +117,16 @@ describe("nicknameSchema", () => {
 
     expect(reported.length).toBeGreaterThan(0);
     for (const key of reported) expect(keys).toContain(key);
+  });
+});
+
+describe("suggestedNickname", () => {
+  it.each([
+    ["Иванов Иван Иванович", "ivanov", "Иван"],
+    ["Иван", "ivanov", "Иван"],
+    ["Иванов И", " Ivanov ", "ivanov"],
+    ["", "", ""],
+  ])("suggests for %j and the login %j: %j", (fullName, login, expected) => {
+    expect(suggestedNickname(fullName, login)).toBe(expected);
   });
 });

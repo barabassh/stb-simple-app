@@ -49,6 +49,7 @@ const profileShape = {
     .trim()
     .min(3, "users.validation.fullNameLength")
     .max(120, "users.validation.fullNameLength"),
+  nickname: nicknameSchema,
   position: z.string().trim().max(120, "users.validation.positionTooLong"),
   email: z
     .string()
@@ -77,8 +78,18 @@ const passwordSameAsLogin = {
   path: ["password"],
 };
 
+/**
+ * `nicknameEdited` is false while the form still shows the nickname it suggested from the full
+ * name: the action then saves the first free one of the default chain instead, whereas a nickname
+ * typed by hand is saved as it is or refused as taken (docs/ТЗ.md, 7.4).
+ */
 export const createUserSchema = z
-  .object({ login: loginField, password: passwordField, ...accountShape })
+  .object({
+    login: loginField,
+    password: passwordField,
+    ...accountShape,
+    nicknameEdited: z.boolean(),
+  })
   .refine(passwordDiffersFromLogin, passwordSameAsLogin);
 
 export const updateUserSchema = z.object(accountShape);
@@ -92,7 +103,16 @@ export const profileSchema = z.object(profileShape);
  */
 const contractorChoice = { contractorId: z.string() };
 
-export const createUserFormSchema = createUserSchema.and(z.object(contractorChoice));
+/** From stage 4 a contractor account must belong to an organisation (docs/ТЗ.md, 6.5). */
+function hasRequiredContractor({ role, contractorId }: { role: Role; contractorId: string }) {
+  return role !== "CONTRACTOR" || contractorId !== "";
+}
+
+const contractorRequired = { error: "users.validation.contractorRequired", path: ["contractorId"] };
+
+export const createUserFormSchema = createUserSchema
+  .and(z.object(contractorChoice))
+  .refine(hasRequiredContractor, contractorRequired);
 
 /**
  * The edit form holds the same values as the create form so that one form serves both;
@@ -101,8 +121,15 @@ export const createUserFormSchema = createUserSchema.and(z.object(contractorChoi
 export const editUserFormSchema = updateUserSchema.extend({
   login: z.string(),
   password: z.string(),
+  nicknameEdited: z.boolean(),
   ...contractorChoice,
 });
+
+/** The edit form of those who may link an account: they see the organisation and must choose one. */
+export const editUserWithContractorFormSchema = editUserFormSchema.refine(
+  hasRequiredContractor,
+  contractorRequired,
+);
 
 /** `login` is only compared with the password; the action substitutes the stored login. */
 export const resetPasswordSchema = z
@@ -123,7 +150,8 @@ export const contractorLinkSchema = z
   .refine(({ role, contractorId }) => contractorId === "" || role === "CONTRACTOR", {
     error: "users.validation.contractorRoleOnly",
     path: ["contractorId"],
-  });
+  })
+  .refine(hasRequiredContractor, contractorRequired);
 
 export type CreateUserInput = z.input<typeof createUserSchema>;
 export type UserFormInput = z.input<typeof createUserFormSchema>;

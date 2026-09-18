@@ -100,10 +100,12 @@ describe("changes to users", () => {
       login: "Sidorov",
       password: "Secret2026new",
       fullName: "Сидоров Сидор",
+      nickname: "Сидор",
+      nicknameEdited: false,
       position: "",
       email: "",
       phone: "",
-      role: "CONTRACTOR",
+      role: "EMPLOYEE",
       isActive: true,
       comment: "",
     });
@@ -120,7 +122,8 @@ describe("changes to users", () => {
         changes: [
           { field: "login", before: null, after: "sidorov" },
           { field: "fullName", before: null, after: "Сидоров Сидор" },
-          { field: "role", before: null, after: t("users.roles.CONTRACTOR") },
+          { field: "nickname", before: null, after: "Сидор" },
+          { field: "role", before: null, after: t("users.roles.EMPLOYEE") },
           { field: "isActive", before: null, after: t("users.statuses.active") },
         ],
         ip: TEST_IP,

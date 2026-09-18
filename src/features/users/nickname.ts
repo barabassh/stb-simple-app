@@ -59,6 +59,15 @@ export function* nicknameCandidates(fullName: string, login: string): Generator<
 }
 
 /**
+ * The nickname the user form suggests while it is not edited by hand: the first of the chain.
+ * The login is compared as the schema stores it.
+ */
+export function suggestedNickname(fullName: string, login: string): string {
+  const [first = ""] = nicknameCandidates(fullName, login.trim().toLowerCase());
+  return first;
+}
+
+/**
  * The first free default nickname. `isTaken` answers for a candidate as typed; nicknames are
  * unique ignoring case, so it must compare that way. The function does not read the database.
  */

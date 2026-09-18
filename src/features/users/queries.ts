@@ -13,6 +13,7 @@ const listItemSelect = {
   id: true,
   login: true,
   fullName: true,
+  nickname: true,
   position: true,
   role: true,
   isActive: true,
@@ -26,6 +27,7 @@ const ORDER_BY: Record<UserSortColumn, (order: SortOrder) => Prisma.UserOrderByW
   {
     login: (order) => ({ login: order }),
     fullName: (order) => ({ fullName: order }),
+    nickname: (order) => ({ nickname: order }),
     position: (order) => ({ position: { sort: order, nulls: "last" } }),
     role: (order) => ({ role: order }),
     isActive: (order) => ({ isActive: order }),
@@ -42,6 +44,7 @@ function usersWhere({ query, roles, status }: UsersListParams): Prisma.UserWhere
           OR: [
             { login: { contains: query, mode: "insensitive" } },
             { fullName: { contains: query, mode: "insensitive" } },
+            { nickname: { contains: query, mode: "insensitive" } },
             { email: { contains: query, mode: "insensitive" } },
           ],
         }
@@ -98,6 +101,7 @@ export async function getUser(actor: SessionUser, id: string) {
       id: true,
       login: true,
       fullName: true,
+      nickname: true,
       position: true,
       email: true,
       phone: true,
@@ -153,6 +157,7 @@ export async function getOwnProfile(actor: SessionUser) {
     select: {
       login: true,
       fullName: true,
+      nickname: true,
       position: true,
       email: true,
       phone: true,

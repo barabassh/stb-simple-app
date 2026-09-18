@@ -41,6 +41,7 @@ export default async function ProfilePage() {
               login: profile.login,
               role: profile.role,
               fullName: profile.fullName,
+              nickname: profile.nickname,
               position: profile.position,
               email: profile.email,
               phone: profile.phone,
@@ -51,6 +52,7 @@ export default async function ProfilePage() {
             rows={[
               { key: "login", value: profile.login },
               { key: "fullName", value: profile.fullName },
+              { key: "nickname", value: profile.nickname },
               { key: "position", value: profile.position },
               { key: "email", value: profile.email },
               { key: "phone", value: profile.phone },

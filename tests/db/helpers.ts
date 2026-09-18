@@ -55,6 +55,7 @@ export async function editFormOf(id: string) {
     where: { id },
     select: {
       fullName: true,
+      nickname: true,
       position: true,
       email: true,
       phone: true,

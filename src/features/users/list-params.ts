@@ -26,6 +26,7 @@ export const DEFAULT_USER_STATUS: UserStatusFilter = "active";
 export const USER_SORT_COLUMNS = [
   "login",
   "fullName",
+  "nickname",
   "position",
   "role",
   "isActive",

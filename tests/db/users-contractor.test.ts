@@ -15,6 +15,8 @@ const NEW_CONTRACTOR_USER = {
   login: "jansen",
   password: "Secret2026new",
   fullName: "Kees Jansen",
+  nickname: "Jansen",
+  nicknameEdited: false,
   position: "",
   email: "",
   phone: "",
@@ -179,5 +181,80 @@ describe("the organisation of an account", () => {
     expect(changesOf(entry)).toEqual([
       { field: "contractor", before: "Bouwbedrijf Jansen", after: "Schilder de Vries" },
     ]);
+  });
+});
+
+describe("a contractor account without an organisation", () => {
+  const required = {
+    ok: false,
+    fieldErrors: { contractorId: ["users.validation.contractorRequired"] },
+  };
+
+  it.each([
+    ["sent empty", { contractorId: "" }],
+    ["left out", {}],
+  ])("is not created, the organisation %s", async (_, organisation) => {
+    await actAs(await createUser({ role: "ADMIN" }));
+
+    await expect(createUserAction({ ...NEW_CONTRACTOR_USER, ...organisation })).resolves.toEqual(
+      required,
+    );
+
+    expect(await db.user.count({ where: { login: "jansen" } })).toBe(0);
+    expect(await db.auditLog.count()).toBe(0);
+  });
+
+  it.each([
+    ["sent empty", { contractorId: "" }],
+    ["left out", {}],
+  ])("is not saved by an administrator, the organisation %s", async (_, organisation) => {
+    // An account created before stage 4, when the organisation was optional.
+    const target = await createUser({ role: "CONTRACTOR" });
+    await actAs(await createUser({ role: "ADMIN" }));
+
+    await expect(
+      updateUser(target.id, {
+        ...(await editFormOf(target.id)),
+        position: "Voorman",
+        ...organisation,
+      }),
+    ).resolves.toEqual(required);
+
+    expect((await db.user.findUniqueOrThrow({ where: { id: target.id } })).position).toBeNull();
+    expect(await db.auditLog.count()).toBe(0);
+  });
+
+  it("is not made by changing the role of an account to contractor", async () => {
+    const target = await createUser({ role: "EMPLOYEE" });
+    await actAs(await createUser({ role: "ADMIN" }));
+
+    await expect(
+      updateUser(target.id, { ...(await editFormOf(target.id)), role: "CONTRACTOR" }),
+    ).resolves.toEqual(required);
+
+    expect((await db.user.findUniqueOrThrow({ where: { id: target.id } })).role).toBe("EMPLOYEE");
+  });
+
+  it("is saved with an organisation chosen by an administrator", async () => {
+    const contractor = await createContractor("Bouwbedrijf Jansen");
+    const target = await createUser({ role: "CONTRACTOR" });
+    await actAs(await createUser({ role: "ADMIN" }));
+
+    await expect(
+      updateUser(target.id, { ...(await editFormOf(target.id)), contractorId: contractor.id }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(await contractorIdOf(target.id)).toBe(contractor.id);
+  });
+
+  it("keeps its profile editable by a manager, who does not see the organisation", async () => {
+    const target = await createUser({ role: "CONTRACTOR" });
+    await actAs(await createUser({ role: "MANAGER" }));
+
+    await expect(
+      updateUser(target.id, { ...(await editFormOf(target.id)), position: "Voorman" }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(await contractorIdOf(target.id)).toBeNull();
   });
 });

@@ -8,6 +8,7 @@ import { listUsersForExport } from "./queries";
 type UserExportRow = {
   login: string;
   fullName: string;
+  nickname: string;
   position: string | null;
   role: string;
   status: string;
@@ -32,6 +33,7 @@ export const usersExport = defineExportReport<UserExportRow>({
       columns: [
         { key: "login", header: t("columns.login") },
         { key: "fullName", header: t("columns.fullName") },
+        { key: "nickname", header: t("columns.nickname") },
         { key: "position", header: t("columns.position") },
         { key: "role", header: t("columns.role") },
         { key: "status", header: t("columns.status") },
@@ -41,6 +43,7 @@ export const usersExport = defineExportReport<UserExportRow>({
       rows: users.map((user) => ({
         login: user.login,
         fullName: user.fullName,
+        nickname: user.nickname,
         position: user.position,
         role: t(`roles.${user.role}`),
         status: t(user.isActive ? "statuses.active" : "statuses.inactive"),

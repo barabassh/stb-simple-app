@@ -24,6 +24,7 @@ export const AUDIT_ENTITIES = [
   "Customer",
   "Contractor",
   "Project",
+  "WorkReport",
 ] as const;
 export type AuditEntity = (typeof AUDIT_ENTITIES)[number];
 

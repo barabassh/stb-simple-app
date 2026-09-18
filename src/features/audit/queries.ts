@@ -69,6 +69,7 @@ const HISTORY_PERMISSION: Record<AuditEntity, Permission> = {
   Customer: "customers.history",
   Contractor: "contractors.history",
   Project: "projects.history",
+  WorkReport: "reports.history",
 };
 
 function toListItem(

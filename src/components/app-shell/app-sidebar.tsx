@@ -1,5 +1,6 @@
 import {
   Building2Icon,
+  ClipboardListIcon,
   FolderKanbanIcon,
   HandshakeIcon,
   HouseIcon,
@@ -12,21 +13,23 @@ import { getTranslations } from "next-intl/server";
 
 import { HOME_PATH } from "@/lib/auth/constants";
 import type { SessionUser } from "@/lib/auth/session";
-import { can, type Permission } from "@/lib/permissions";
+import { canAny, REPORTS_SECTION, type Permission } from "@/lib/permissions";
 
 import { NavLink } from "./nav-link";
 
 type NavItem = {
-  key: "home" | "projects" | "customers" | "contractors" | "users" | "audit" | "settings";
+  key:
+    "home" | "projects" | "reports" | "customers" | "contractors" | "users" | "audit" | "settings";
   href: string;
   icon: LucideIcon;
-  permission?: Permission;
+  permission?: Permission | readonly Permission[];
 };
 
 const NAV_ITEMS: NavItem[] = [
   { key: "home", href: HOME_PATH, icon: HouseIcon },
   // A contractor sees the section too, but only the projects in progress (docs/ТЗ.md, 6.2).
   { key: "projects", href: "/projects", icon: FolderKanbanIcon, permission: "projects.readActive" },
+  { key: "reports", href: "/reports", icon: ClipboardListIcon, permission: REPORTS_SECTION },
   { key: "customers", href: "/customers", icon: HandshakeIcon, permission: "customers.read" },
   { key: "contractors", href: "/contractors", icon: Building2Icon, permission: "contractors.read" },
   { key: "users", href: "/users", icon: UsersIcon, permission: "users.read" },
@@ -36,7 +39,9 @@ const NAV_ITEMS: NavItem[] = [
 
 export async function AppSidebar({ user }: { user: SessionUser }) {
   const t = await getTranslations("nav");
-  const items = NAV_ITEMS.filter((item) => !item.permission || can(user, item.permission));
+  const items = NAV_ITEMS.filter(
+    ({ permission }) => !permission || canAny(user, [permission].flat()),
+  );
 
   return (
     // Collapses to an icon rail below 1280px (docs/ТЗ.md, 3.2) to leave the width to the content.

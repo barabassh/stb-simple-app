@@ -22,6 +22,8 @@ const NEW_USER = {
   login: "sidorov",
   password: "Secret2026new",
   fullName: "Сидоров Сидор",
+  nickname: "Сидор",
+  nicknameEdited: false,
   position: "",
   email: "",
   phone: "",

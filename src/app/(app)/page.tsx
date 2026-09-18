@@ -1,6 +1,7 @@
 import {
   Building2Icon,
   CalculatorIcon,
+  ClipboardListIcon,
   FolderKanbanIcon,
   HandshakeIcon,
   LayoutDashboardIcon,
@@ -14,20 +15,29 @@ import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/current-user";
-import { can, type Permission } from "@/lib/permissions";
+import { canAny, REPORTS_SECTION, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 type Section = {
-  key: "projects" | "customers" | "contractors" | "users" | "estimates" | "dashboard" | "settings";
+  key:
+    | "projects"
+    | "reports"
+    | "customers"
+    | "contractors"
+    | "users"
+    | "estimates"
+    | "dashboard"
+    | "settings";
   icon: LucideIcon;
   /** Sections without a route are shown as "in development". */
   href?: string;
-  permission?: Permission;
+  permission?: Permission | readonly Permission[];
 };
 
 // The same order as the sections of the side menu.
 const SECTIONS: Section[] = [
   { key: "projects", icon: FolderKanbanIcon, href: "/projects", permission: "projects.readActive" },
+  { key: "reports", icon: ClipboardListIcon, href: "/reports", permission: REPORTS_SECTION },
   { key: "customers", icon: HandshakeIcon, href: "/customers", permission: "customers.read" },
   { key: "contractors", icon: Building2Icon, href: "/contractors", permission: "contractors.read" },
   { key: "users", icon: UsersIcon, href: "/users", permission: "users.read" },
@@ -40,7 +50,7 @@ export default async function HomePage() {
   const user = await requireUser();
   const t = await getTranslations("home");
   const sections = SECTIONS.filter(
-    (section) => !section.permission || can(user, section.permission),
+    ({ permission }) => !permission || canAny(user, [permission].flat()),
   );
 
   return (

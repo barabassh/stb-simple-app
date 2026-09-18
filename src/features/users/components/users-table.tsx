@@ -45,6 +45,7 @@ export function UsersTable({ rows, rowCount, state, emptyState, viewer }: UsersT
           ),
         }),
         columnHelper.accessor("fullName", { header: t("columns.fullName") }),
+        columnHelper.accessor("nickname", { header: t("columns.nickname") }),
         columnHelper.accessor("position", {
           header: t("columns.position"),
           cell: ({ getValue }) => getValue() ?? "—",

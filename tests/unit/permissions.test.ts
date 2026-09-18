@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Role } from "@/generated/prisma/enums";
 import {
   can,
+  canAny,
   PermissionDeniedError,
   requirePermission,
   userUpdatePermission,
@@ -55,6 +56,15 @@ const MATRIX: Record<Permission, Role[]> = {
   "projects.delete": ["ADMIN"],
   "projects.export": ["ADMIN", "MANAGER"],
   "projects.history": ["ADMIN", "MANAGER", "EMPLOYEE"],
+  "projects.participants": ["ADMIN", "MANAGER"],
+  "reports.readOwn": ["EMPLOYEE", "CONTRACTOR"],
+  "reports.writeOwn": ["EMPLOYEE", "CONTRACTOR"],
+  "reports.read": ["ADMIN", "MANAGER"],
+  "reports.write": ["ADMIN", "MANAGER"],
+  "reports.approve": ["ADMIN", "MANAGER"],
+  "reports.export": ["ADMIN", "MANAGER"],
+  "reports.import": ["ADMIN", "MANAGER"],
+  "reports.history": ["ADMIN", "MANAGER"],
 };
 
 describe("can", () => {
@@ -69,6 +79,9 @@ describe("can", () => {
     ["MANAGER", "customers.changeStatus"],
     ["EMPLOYEE", "projects.history"],
     ["CONTRACTOR", "projects.readActive"],
+    ["ADMIN", "reports.approve"],
+    ["MANAGER", "projects.participants"],
+    ["CONTRACTOR", "reports.writeOwn"],
   ])("allows %s %s", (role, permission) => {
     expect(can({ role }, permission)).toBe(true);
   });
@@ -87,6 +100,11 @@ describe("can", () => {
     ["CONTRACTOR", "customers.read"],
     ["EMPLOYEE", "settings.read"],
     ["CONTRACTOR", "settings.company.read"],
+    // Administrators and managers file no reports of their own (docs/ТЗ.md, 7.2).
+    ["ADMIN", "reports.readOwn"],
+    ["MANAGER", "reports.writeOwn"],
+    ["EMPLOYEE", "reports.read"],
+    ["CONTRACTOR", "projects.participants"],
   ])("denies %s %s", (role, permission) => {
     expect(can({ role }, permission)).toBe(false);
   });
@@ -99,6 +117,16 @@ describe("can", () => {
         );
       }
     }
+  });
+});
+
+describe("canAny", () => {
+  it.each(EVERY_ROLE)("lets %s open the reports section", (role) => {
+    expect(canAny({ role }, ["reports.read", "reports.readOwn"])).toBe(true);
+  });
+
+  it("denies a role that holds none of the permissions", () => {
+    expect(canAny({ role: "EMPLOYEE" }, ["users.read", "audit.read"])).toBe(false);
   });
 });
 

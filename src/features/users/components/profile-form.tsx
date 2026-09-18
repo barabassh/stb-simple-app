@@ -15,7 +15,10 @@ import type { OwnProfile } from "../queries";
 import { profileSchema, type ProfileInput } from "../schemas";
 
 type ProfileFormProps = {
-  profile: Pick<OwnProfile, "login" | "role" | "fullName" | "position" | "email" | "phone">;
+  profile: Pick<
+    OwnProfile,
+    "login" | "role" | "fullName" | "nickname" | "position" | "email" | "phone"
+  >;
 };
 
 export function ProfileForm({ profile }: ProfileFormProps) {
@@ -25,6 +28,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       fullName: profile.fullName,
+      nickname: profile.nickname,
       position: profile.position ?? "",
       email: profile.email ?? "",
       phone: profile.phone ?? "",
@@ -92,6 +96,17 @@ export function ProfileForm({ profile }: ProfileFormProps) {
               {...form.register("fullName")}
             />
             <FieldError>{fieldError(errors.fullName?.message)}</FieldError>
+          </Field>
+
+          <Field data-invalid={!!errors.nickname}>
+            <FieldLabel htmlFor="nickname">{t("users.fields.nickname")}</FieldLabel>
+            <Input
+              id="nickname"
+              autoComplete="nickname"
+              aria-invalid={!!errors.nickname}
+              {...form.register("nickname")}
+            />
+            <FieldError>{fieldError(errors.nickname?.message)}</FieldError>
           </Field>
 
           <Field data-invalid={!!errors.position}>

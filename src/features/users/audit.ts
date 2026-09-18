@@ -8,6 +8,7 @@ type Translate = (key: string, values?: Record<string, string | number>) => stri
 export const USER_AUDIT_SELECT = {
   login: true,
   fullName: true,
+  nickname: true,
   position: true,
   email: true,
   phone: true,
@@ -28,6 +29,7 @@ export function userAuditSnapshot(user: UserAuditRecord, t: Translate) {
   return {
     login: user.login,
     fullName: user.fullName,
+    nickname: user.nickname,
     position: user.position,
     email: user.email,
     phone: user.phone,
