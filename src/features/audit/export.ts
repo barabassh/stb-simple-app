@@ -64,13 +64,16 @@ export const auditExport = defineExportReport<AuditExportRow>({
         entity: label(`entities.${entry.entity}`, entry.entity),
         summary: entry.summary,
         changes: entry.changes
-          .map((change) =>
-            t("export.change", {
-              field: label(`fields.${entry.entity}.${change.field}`, change.field),
-              before: value(change.before),
-              after: value(change.after),
-            }),
-          )
+          .map((change) => {
+            const field = label(`fields.${entry.entity}.${change.field}`, change.field);
+            return change.withheld
+              ? t("export.withheldChange", { field })
+              : t("export.change", {
+                  field,
+                  before: value(change.before),
+                  after: value(change.after),
+                });
+          })
           .join("\n"),
         ip: entry.ip,
         browser: describeUserAgent(entry.userAgent) ?? entry.userAgent,

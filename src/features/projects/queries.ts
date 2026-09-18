@@ -287,3 +287,64 @@ export function toFormRecord(
     budgetHours: project.budgetHours?.toFixed(2) ?? null,
   };
 }
+
+const stampSelect = { select: { fullName: true, login: true } } as const;
+
+const cardSelect = {
+  description: true,
+  createdAt: true,
+  createdBy: stampSelect,
+  updatedBy: stampSelect,
+  closedBy: stampSelect,
+} as const satisfies Prisma.ProjectSelect;
+
+type ProjectCardRow = ProjectRow & Partial<Prisma.ProjectGetPayload<{ select: typeof cardSelect }>>;
+
+type Stamp = { fullName: string; login: string } | null;
+
+export type ProjectDetails = ProjectListItem & {
+  /** Absent for a reader without projects.read, like the customer and the stamps. */
+  description?: string | null;
+  stamps?: {
+    createdAt: Date;
+    updatedAt: Date;
+    createdBy: Stamp;
+    updatedBy: Stamp;
+    /** Set only while the project is closed. */
+    closed: { at: Date; by: Stamp } | null;
+  };
+};
+
+/**
+ * The project its card shows, with the fields of the reader's access (docs/ТЗ.md, 6.9). Deleted
+ * projects are nobody's; without projects.read a project that is not in progress is not there
+ * either, so a contractor following a link to it learns nothing of it (docs/ПРАВА-ДОСТУПА.md,
+ * rule 11).
+ */
+export async function getProject(actor: SessionUser, id: string): Promise<ProjectDetails | null> {
+  requirePermission(actor, "projects.readActive");
+
+  const access = projectAccess(actor);
+  const row = (await db.project.findFirst({
+    where: { id, deletedAt: null, ...(access.all ? {} : { status: "IN_PROGRESS" }) },
+    select: { ...listSelect(access), ...(access.all ? cardSelect : {}) },
+  })) as unknown as ProjectCardRow | null;
+  if (!row) return null;
+
+  const item = toListItem(row, access, new Date());
+  // The card fields were selected together with projects.read, so createdAt stands for them all.
+  const { createdAt, updatedAt, createdBy, updatedBy, closedAt, closedBy, description } = row;
+  if (!access.all || !createdAt || !updatedAt) return item;
+
+  return {
+    ...item,
+    description: description ?? null,
+    stamps: {
+      createdAt,
+      updatedAt,
+      createdBy: createdBy ?? null,
+      updatedBy: updatedBy ?? null,
+      closed: closedAt ? { at: closedAt, by: closedBy ?? null } : null,
+    },
+  };
+}

@@ -5,6 +5,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
+import type { ProjectStatus } from "@/generated/prisma/enums";
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
 import { diffEntity, logAudit } from "@/lib/audit";
 import { authorizedAction } from "@/lib/auth/authorized-action";
@@ -102,13 +103,15 @@ async function activeCustomerName(
   return customer.isActive ? customer.name : customerArchived;
 }
 
+function revalidateProjects() {
+  revalidatePath(PROJECTS_PATH, "layout");
+  revalidatePath(CUSTOMERS_PATH, "layout");
+}
+
 async function saving<T extends ActionResult>(save: () => Promise<T>): Promise<T | ActionFailure> {
   try {
     const result = await save();
-    if (result.ok) {
-      revalidatePath(PROJECTS_PATH, "layout");
-      revalidatePath(CUSTOMERS_PATH, "layout");
-    }
+    if (result.ok) revalidateProjects();
     return result;
   } catch (error) {
     const failure = uniqueViolation(error);
@@ -210,5 +213,111 @@ export const updateProject = authorizedAction(
         return { ok: true };
       }),
     );
+  },
+);
+
+const statusChanged: ActionFailure = { ok: false, error: "projects.errors.statusChanged" };
+
+const projectStatusSchema = z.enum(["IN_PROGRESS", "CLOSED"]);
+
+/**
+ * Nothing was written by a conditional update: tells a project that is gone from one whose status
+ * has moved on. The read comes after the write and decides only the message.
+ */
+async function unchangedProject(
+  tx: Prisma.TransactionClient,
+  id: string,
+): Promise<{ status: ProjectStatus } | null> {
+  return tx.project.findFirst({ where: { id, deletedAt: null }, select: { status: true } });
+}
+
+/**
+ * Closes a project in progress or brings a closed one back (docs/ТЗ.md, 6.7). The expected current
+ * status is the condition of the write: a second tab closing the same project writes nothing.
+ */
+export const changeProjectStatus = authorizedAction(
+  "projects.changeStatus",
+  async (actor, id: string, target: ProjectStatus): Promise<ActionResult> => {
+    if (!projectIdSchema.safeParse(id).success) return notFound;
+    const parsedTarget = projectStatusSchema.safeParse(target);
+    if (!parsedTarget.success) return { ok: false, error: "errors.invalidRequest" };
+    const closing = parsedTarget.data === "CLOSED";
+    const { t, request } = await auditContext();
+
+    const result = await db.$transaction(async (tx): Promise<ActionResult> => {
+      const { count } = await tx.project.updateMany({
+        where: { id, deletedAt: null, status: closing ? "IN_PROGRESS" : "CLOSED" },
+        data: {
+          status: parsedTarget.data,
+          closedAt: closing ? new Date() : null,
+          closedById: closing ? actor.id : null,
+          updatedById: actor.id,
+        },
+      });
+      if (count === 0) return (await unchangedProject(tx, id)) ? statusChanged : notFound;
+
+      const { number } = await tx.project.findUniqueOrThrow({
+        where: { id },
+        select: { number: true },
+      });
+      const statusName = (status: ProjectStatus) => t(`projects.statuses.${status}`);
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "STATUS_CHANGE",
+        entity: "Project",
+        entityId: id,
+        summary: t(`audit.summaries.${closing ? "projectClosed" : "projectReopened"}`, { number }),
+        changes: [
+          {
+            field: "status",
+            before: statusName(closing ? "IN_PROGRESS" : "CLOSED"),
+            after: statusName(parsedTarget.data),
+          },
+        ],
+      });
+      return { ok: true };
+    });
+
+    if (result.ok) revalidateProjects();
+    return result;
+  },
+);
+
+/**
+ * A project made by mistake is deleted softly, and only while in progress (docs/ТЗ.md, 6.7): the
+ * condition is part of the write, like every change of a project. The number becomes free, since
+ * the unique index covers only projects that are not deleted.
+ */
+export const deleteProject = authorizedAction(
+  "projects.delete",
+  async (actor, id: string): Promise<ActionResult> => {
+    if (!projectIdSchema.safeParse(id).success) return notFound;
+    const { t, request } = await auditContext();
+
+    const result = await db.$transaction(async (tx): Promise<ActionResult> => {
+      const { count } = await tx.project.updateMany({
+        where: { id, deletedAt: null, status: "IN_PROGRESS" },
+        data: { deletedAt: new Date(), updatedById: actor.id },
+      });
+      if (count === 0) return (await unchangedProject(tx, id)) ? closed : notFound;
+
+      const { number } = await tx.project.findUniqueOrThrow({
+        where: { id },
+        select: { number: true },
+      });
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "DELETE",
+        entity: "Project",
+        entityId: id,
+        summary: t("audit.summaries.projectDeleted", { number }),
+      });
+      return { ok: true };
+    });
+
+    if (result.ok) revalidateProjects();
+    return result;
   },
 );

@@ -56,9 +56,15 @@ export function AuditDetails({ entry, showRequestInfo }: AuditDetailsProps) {
             {entry.changes.map((change) => (
               <li key={change.field} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="text-muted-foreground">{fieldLabel(change.field)}:</span>
-                <ChangeValue value={change.before} className="text-muted-foreground" />
-                <span aria-hidden>→</span>
-                <ChangeValue value={change.after} className="font-medium" />
+                {change.withheld ? (
+                  <span>{t("details.withheld")}</span>
+                ) : (
+                  <>
+                    <ChangeValue value={change.before} className="text-muted-foreground" />
+                    <span aria-hidden>→</span>
+                    <ChangeValue value={change.after} className="font-medium" />
+                  </>
+                )}
               </li>
             ))}
           </ul>

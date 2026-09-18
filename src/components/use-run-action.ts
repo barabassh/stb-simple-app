@@ -9,6 +9,8 @@ import type { ActionResult } from "@/lib/action-result";
 type RunOptions = {
   /** Called after success and failure alike, e.g. to close a confirmation dialog. */
   onSettled?: () => void;
+  /** Called after success only, e.g. to leave the page of a record that was deleted. */
+  onSuccess?: () => void;
 };
 
 /** Runs a server action that has no form of its own and reports the outcome in a toast. */
@@ -19,12 +21,13 @@ export function useRunAction() {
   function run(
     action: () => Promise<ActionResult>,
     successMessage: string,
-    { onSettled }: RunOptions = {},
+    { onSettled, onSuccess }: RunOptions = {},
   ) {
     startTransition(async () => {
       const result = await action();
       if (result.ok) {
         toast.success(t(successMessage));
+        onSuccess?.();
       } else {
         toast.error(t(result.error ?? "errors.invalidRequest", result.errorValues));
       }
