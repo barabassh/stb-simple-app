@@ -12,23 +12,23 @@ import { db } from "@/lib/db";
 import { addressColumns } from "@/lib/nl/schemas";
 import { getClientInfo } from "@/lib/request-info";
 
-import { customerAuditSnapshot } from "./audit";
-import { customerFormValues } from "./form-values";
-import { customerFormSchema, type CustomerFormValues } from "./schemas";
+import { contractorAuditSnapshot } from "./audit";
+import { contractorFormValues } from "./form-values";
+import { contractorFormSchema, type ContractorFormValues } from "./schemas";
 
-// Customers are never deleted: projects and the audit log reference them, so they are archived
-// (`isActive: false`) instead (docs/ТЗ.md, 6.4).
+// Contractors are never deleted: user accounts and the audit log reference them, so they are
+// archived (`isActive: false`) instead (docs/ТЗ.md, 6.5).
 
-const CUSTOMERS_PATH = "/customers";
+const CONTRACTORS_PATH = "/contractors";
 
-const notFound: ActionFailure = { ok: false, error: "customers.errors.notFound" };
+const notFound: ActionFailure = { ok: false, error: "contractors.errors.notFound" };
 const invalidRequest: ActionFailure = { ok: false, error: "errors.invalidRequest" };
 const kvkTaken: ActionFailure = {
   ok: false,
-  fieldErrors: { kvkNumber: ["customers.errors.kvkTaken"] },
+  fieldErrors: { kvkNumber: ["contractors.errors.kvkTaken"] },
 };
 
-const customerIdSchema = z.cuid();
+const contractorIdSchema = z.cuid();
 
 function validationFailure(error: z.ZodError): ActionFailure {
   const fieldErrors: Record<string, string[]> = {};
@@ -38,10 +38,10 @@ function validationFailure(error: z.ZodError): ActionFailure {
   return { ok: false, fieldErrors };
 }
 
-function customerData(values: CustomerFormValues) {
+function contractorData(values: ContractorFormValues) {
   return {
-    type: values.type,
     name: values.name,
+    legalForm: values.legalForm ?? null,
     kvkNumber: values.kvkNumber || null,
     vatId: values.vatId || null,
     contactPerson: values.contactPerson || null,
@@ -59,7 +59,7 @@ async function auditContext() {
 }
 
 /**
- * The unique KvK-nummer is shared with archived customers, so a taken number is reported under
+ * The unique KvK-nummer is shared with archived contractors, so a taken number is reported under
  * its field instead of failing the save.
  */
 function uniqueViolation(error: unknown): ActionFailure | null {
@@ -68,36 +68,36 @@ function uniqueViolation(error: unknown): ActionFailure | null {
     : null;
 }
 
-export const createCustomer = authorizedAction(
-  "customers.create",
+export const createContractor = authorizedAction(
+  "contractors.create",
   async (actor, input: unknown): Promise<ActionResult<{ id: string }>> => {
-    const parsed = customerFormSchema.safeParse(input);
+    const parsed = contractorFormSchema.safeParse(input);
     if (!parsed.success) return validationFailure(parsed.error);
     const values = parsed.data;
     const { t, locale, request } = await auditContext();
 
     try {
       const id = await db.$transaction(async (tx) => {
-        const { id } = await tx.customer.create({
-          data: { ...customerData(values), createdById: actor.id, updatedById: actor.id },
+        const { id } = await tx.contractor.create({
+          data: { ...contractorData(values), createdById: actor.id, updatedById: actor.id },
           select: { id: true },
         });
         await logAudit(tx, {
           ...request,
           actor,
           action: "CREATE",
-          entity: "Customer",
+          entity: "Contractor",
           entityId: id,
-          summary: t("audit.summaries.customerCreated", { name: values.name }),
+          summary: t("audit.summaries.contractorCreated", { name: values.name }),
           changes: diffEntity(
             null,
-            customerAuditSnapshot({ ...values, isActive: true }, t, locale),
+            contractorAuditSnapshot({ ...values, isActive: true }, t, locale),
           ),
         });
         return id;
       });
 
-      revalidatePath(CUSTOMERS_PATH, "layout");
+      revalidatePath(CONTRACTORS_PATH, "layout");
       return { ok: true, id };
     } catch (error) {
       const failure = uniqueViolation(error);
@@ -107,48 +107,48 @@ export const createCustomer = authorizedAction(
   },
 );
 
-export const updateCustomer = authorizedAction(
-  "customers.update",
+export const updateContractor = authorizedAction(
+  "contractors.update",
   async (actor, id: string, input: unknown): Promise<ActionResult> => {
-    if (!customerIdSchema.safeParse(id).success) return notFound;
-    const parsed = customerFormSchema.safeParse(input);
+    if (!contractorIdSchema.safeParse(id).success) return notFound;
+    const parsed = contractorFormSchema.safeParse(input);
     if (!parsed.success) return validationFailure(parsed.error);
     const values = parsed.data;
     const { t, locale, request } = await auditContext();
 
     try {
       const result = await db.$transaction(async (tx): Promise<ActionResult> => {
-        const target = await tx.customer.findUnique({ where: { id } });
+        const target = await tx.contractor.findUnique({ where: { id } });
         if (!target) return notFound;
 
         const changes = diffEntity(
-          customerAuditSnapshot(
-            { ...customerFormValues(target), isActive: target.isActive },
+          contractorAuditSnapshot(
+            { ...contractorFormValues(target), isActive: target.isActive },
             t,
             locale,
           ),
-          customerAuditSnapshot({ ...values, isActive: target.isActive }, t, locale),
+          contractorAuditSnapshot({ ...values, isActive: target.isActive }, t, locale),
         );
         // An unchanged form writes nothing, so "Изменено" keeps pointing at the last real change.
         if (changes.length === 0) return { ok: true };
 
-        await tx.customer.update({
+        await tx.contractor.update({
           where: { id },
-          data: { ...customerData(values), updatedById: actor.id },
+          data: { ...contractorData(values), updatedById: actor.id },
         });
         await logAudit(tx, {
           ...request,
           actor,
           action: "UPDATE",
-          entity: "Customer",
+          entity: "Contractor",
           entityId: id,
-          summary: t("audit.summaries.customerUpdated", { name: values.name }),
+          summary: t("audit.summaries.contractorUpdated", { name: values.name }),
           changes,
         });
         return { ok: true };
       });
 
-      if (result.ok) revalidatePath(CUSTOMERS_PATH, "layout");
+      if (result.ok) revalidatePath(CONTRACTORS_PATH, "layout");
       return result;
     } catch (error) {
       const failure = uniqueViolation(error);
@@ -158,41 +158,44 @@ export const updateCustomer = authorizedAction(
   },
 );
 
-/** Moves a customer to the archive (`isActive: false`) or brings it back. */
-export const changeCustomerStatus = authorizedAction(
-  "customers.changeStatus",
+/**
+ * Moves a contractor to the archive (`isActive: false`) or brings it back. Accounts linked to an
+ * archived contractor keep the link; it just can no longer be chosen for another account.
+ */
+export const changeContractorStatus = authorizedAction(
+  "contractors.changeStatus",
   async (actor, id: string, isActive: boolean): Promise<ActionResult> => {
-    if (!customerIdSchema.safeParse(id).success) return notFound;
+    if (!contractorIdSchema.safeParse(id).success) return notFound;
     if (!z.boolean().safeParse(isActive).success) return invalidRequest;
     const { t, locale, request } = await auditContext();
 
     const result = await db.$transaction(async (tx): Promise<ActionResult> => {
-      const target = await tx.customer.findUnique({ where: { id } });
+      const target = await tx.contractor.findUnique({ where: { id } });
       if (!target) return notFound;
-      // Archiving an archived customer changes nothing and is not worth an entry.
+      // Archiving an archived contractor changes nothing and is not worth an entry.
       if (target.isActive === isActive) return { ok: true };
 
-      await tx.customer.update({ where: { id }, data: { isActive, updatedById: actor.id } });
-      const values = customerFormValues(target);
+      await tx.contractor.update({ where: { id }, data: { isActive, updatedById: actor.id } });
+      const values = contractorFormValues(target);
       await logAudit(tx, {
         ...request,
         actor,
         action: "STATUS_CHANGE",
-        entity: "Customer",
+        entity: "Contractor",
         entityId: id,
         summary: t(
-          isActive ? "audit.summaries.customerRestored" : "audit.summaries.customerArchived",
+          isActive ? "audit.summaries.contractorRestored" : "audit.summaries.contractorArchived",
           { name: target.name },
         ),
         changes: diffEntity(
-          customerAuditSnapshot({ ...values, isActive: target.isActive }, t, locale),
-          customerAuditSnapshot({ ...values, isActive }, t, locale),
+          contractorAuditSnapshot({ ...values, isActive: target.isActive }, t, locale),
+          contractorAuditSnapshot({ ...values, isActive }, t, locale),
         ),
       });
       return { ok: true };
     });
 
-    if (result.ok) revalidatePath(CUSTOMERS_PATH, "layout");
+    if (result.ok) revalidatePath(CONTRACTORS_PATH, "layout");
     return result;
   },
 );

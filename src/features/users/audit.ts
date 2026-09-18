@@ -14,16 +14,27 @@ export const USER_AUDIT_SELECT = {
   role: true,
   isActive: true,
   comment: true,
+  contractorId: true,
+  contractor: { select: { name: true } },
 } as const satisfies Prisma.UserSelect;
 
 export type UserAuditRecord = Prisma.UserGetPayload<{ select: typeof USER_AUDIT_SELECT }>;
 
-/** Role and status are logged by their names: codes would need decoding to be read. */
+/**
+ * Role, status and the contractor are logged by their names: codes and ids would need decoding
+ * to be read (docs/ТЗ.md, 6.10).
+ */
 export function userAuditSnapshot(user: UserAuditRecord, t: Translate) {
   return {
-    ...user,
+    login: user.login,
+    fullName: user.fullName,
+    position: user.position,
+    email: user.email,
+    phone: user.phone,
     role: t(`users.roles.${user.role}`),
     isActive: t(user.isActive ? "users.statuses.active" : "users.statuses.inactive"),
+    comment: user.comment,
+    contractor: user.contractor?.name ?? null,
   };
 }
 

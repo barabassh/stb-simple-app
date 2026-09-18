@@ -44,7 +44,9 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
     {
       value: PROFILE_TAB,
       label: t("users.card.tabs.profile"),
-      content: <UserProfileDetails user={user} />,
+      content: (
+        <UserProfileDetails user={user} canOpenContractor={can(viewer, "contractors.read")} />
+      ),
     },
     ...(sessions
       ? [

@@ -68,12 +68,21 @@ export const updateUserSchema = z.object(accountShape);
 export const profileSchema = z.object(profileShape);
 
 /**
+ * The organisation chosen in the form. It is checked by contractorLinkSchema on the server, and
+ * sent only by those who may link an account (docs/ТЗ.md, 6.5).
+ */
+const contractorChoice = { contractorId: z.string() };
+
+export const createUserFormSchema = createUserSchema.and(z.object(contractorChoice));
+
+/**
  * The edit form holds the same values as the create form so that one form serves both;
  * login and password are carried along unchecked and updateUserSchema drops them on the server.
  */
 export const editUserFormSchema = updateUserSchema.extend({
   login: z.string(),
   password: z.string(),
+  ...contractorChoice,
 });
 
 /** `login` is only compared with the password; the action substitutes the stored login. */
@@ -98,6 +107,7 @@ export const contractorLinkSchema = z
   });
 
 export type CreateUserInput = z.input<typeof createUserSchema>;
+export type UserFormInput = z.input<typeof createUserFormSchema>;
 export type UpdateUserInput = z.input<typeof updateUserSchema>;
 export type ProfileInput = z.input<typeof profileSchema>;
 export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;

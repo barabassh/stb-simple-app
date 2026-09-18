@@ -5,7 +5,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 
-import type { CustomerSortColumn, CustomersListParams } from "./list-params";
+import type { ContractorSortColumn, ContractorsListParams } from "./list-params";
 
 // Pages check the permission themselves to show the access denied page; the checks here keep
 // a page that forgets it from showing the data anyway.
@@ -13,19 +13,19 @@ import type { CustomerSortColumn, CustomersListParams } from "./list-params";
 const listItemSelect = {
   id: true,
   name: true,
-  type: true,
   kvkNumber: true,
   contactPerson: true,
   phone: true,
   email: true,
   city: true,
   isActive: true,
-} as const satisfies Prisma.CustomerSelect;
+} as const satisfies Prisma.ContractorSelect;
 
-export type CustomerListItem = Prisma.CustomerGetPayload<{ select: typeof listItemSelect }>;
+export type ContractorListItem = Prisma.ContractorGetPayload<{ select: typeof listItemSelect }>;
 
 const detailsSelect = {
   ...listItemSelect,
+  legalForm: true,
   vatId: true,
   street: true,
   houseNumber: true,
@@ -37,16 +37,15 @@ const detailsSelect = {
   updatedAt: true,
   createdBy: { select: { fullName: true, login: true } },
   updatedBy: { select: { fullName: true, login: true } },
-} as const satisfies Prisma.CustomerSelect;
+} as const satisfies Prisma.ContractorSelect;
 
-export type CustomerDetails = Prisma.CustomerGetPayload<{ select: typeof detailsSelect }>;
+export type ContractorDetails = Prisma.ContractorGetPayload<{ select: typeof detailsSelect }>;
 
 const ORDER_BY: Record<
-  CustomerSortColumn,
-  (order: SortOrder) => Prisma.CustomerOrderByWithRelationInput
+  ContractorSortColumn,
+  (order: SortOrder) => Prisma.ContractorOrderByWithRelationInput
 > = {
   name: (order) => ({ name: order }),
-  type: (order) => ({ type: order }),
   kvkNumber: (order) => ({ kvkNumber: { sort: order, nulls: "last" } }),
   contactPerson: (order) => ({ contactPerson: { sort: order, nulls: "last" } }),
   phone: (order) => ({ phone: { sort: order, nulls: "last" } }),
@@ -55,78 +54,76 @@ const ORDER_BY: Record<
   isActive: (order) => ({ isActive: order }),
 };
 
-function customersWhere(params: CustomersListParams): Prisma.CustomerWhereInput {
-  return {
-    ...(params.type ? { type: params.type } : {}),
-    ...referenceWhere(params, ["name", "kvkNumber", "contactPerson", "email"]),
-  };
+function contractorsWhere(params: ContractorsListParams): Prisma.ContractorWhereInput {
+  return referenceWhere(params, ["name", "kvkNumber", "contactPerson", "email"]);
 }
 
-function customersOrderBy({
+function contractorsOrderBy({
   sort,
-}: CustomersListParams["table"]): Prisma.CustomerOrderByWithRelationInput[] {
+}: ContractorsListParams["table"]): Prisma.ContractorOrderByWithRelationInput[] {
   // The id tie-breaker keeps rows with equal sort values from moving between pages.
   return [...(sort ? [ORDER_BY[sort.column](sort.order)] : []), { id: "asc" }];
 }
 
-export async function listCustomers(
+export async function listContractors(
   actor: SessionUser,
-  params: CustomersListParams,
-): Promise<{ rows: CustomerListItem[]; rowCount: number }> {
-  requirePermission(actor, "customers.read");
+  params: ContractorsListParams,
+): Promise<{ rows: ContractorListItem[]; rowCount: number }> {
+  requirePermission(actor, "contractors.read");
 
-  const where = customersWhere(params);
+  const where = contractorsWhere(params);
   const [rows, rowCount] = await Promise.all([
-    db.customer.findMany({
+    db.contractor.findMany({
       where,
       select: listItemSelect,
-      orderBy: customersOrderBy(params.table),
+      orderBy: contractorsOrderBy(params.table),
       skip: (params.table.page - 1) * params.table.pageSize,
       take: params.table.pageSize,
     }),
-    db.customer.count({ where }),
+    db.contractor.count({ where }),
   ]);
 
   return { rows, rowCount };
 }
 
-/** Every customer the registry shows with these parameters, in its order, on all of its pages. */
-export async function listCustomersForExport(
+/** Every contractor the registry shows with these parameters, in its order, on all of its pages. */
+export async function listContractorsForExport(
   actor: SessionUser,
-  params: CustomersListParams,
-): Promise<CustomerListItem[]> {
-  requirePermission(actor, "customers.export");
+  params: ContractorsListParams,
+): Promise<ContractorListItem[]> {
+  requirePermission(actor, "contractors.export");
 
-  return db.customer.findMany({
-    where: customersWhere(params),
+  return db.contractor.findMany({
+    where: contractorsWhere(params),
     select: listItemSelect,
-    orderBy: customersOrderBy(params.table),
+    orderBy: contractorsOrderBy(params.table),
   });
 }
 
-export async function getCustomer(actor: SessionUser, id: string): Promise<CustomerDetails | null> {
-  requirePermission(actor, "customers.read");
+export async function getContractor(
+  actor: SessionUser,
+  id: string,
+): Promise<ContractorDetails | null> {
+  requirePermission(actor, "contractors.read");
 
-  return db.customer.findUnique({ where: { id }, select: detailsSelect });
+  return db.contractor.findUnique({ where: { id }, select: detailsSelect });
 }
 
-export type CustomerOption = { id: string; name: string; isActive: boolean };
+export type ContractorOption = { id: string; name: string; isActive: boolean };
 
 /**
- * The customers the project form offers (docs/АРХИТЕКТУРА.md, 3.8): the active ones, plus the
- * customer already chosen in the project being edited even if it has since been archived.
+ * The contractors the user form offers as the organisation (docs/АРХИТЕКТУРА.md, 3.8): the active
+ * ones, plus the one the account is already linked to even if it has since been archived.
  */
-export async function listCustomerOptions(
+export async function listContractorOptions(
   actor: SessionUser,
   selectedId?: string | null,
-): Promise<CustomerOption[]> {
-  requirePermission(actor, "customers.read");
+): Promise<ContractorOption[]> {
+  requirePermission(actor, "users.changeContractor");
 
-  const customers = await db.customer.findMany({
+  return db.contractor.findMany({
     where: { OR: [{ isActive: true }, ...(selectedId ? [{ id: selectedId }] : [])] },
     select: { id: true, name: true, isActive: true },
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
-
-  return customers;
 }

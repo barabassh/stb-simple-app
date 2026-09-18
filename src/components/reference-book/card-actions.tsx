@@ -9,29 +9,41 @@ import { Button } from "@/components/ui/button";
 import type { SessionUser } from "@/lib/auth/session";
 import { can } from "@/lib/permissions";
 
-import { CustomerStatusDialog, type CustomerActionTarget } from "./customer-status-dialog";
+import type { ReferenceSection } from "./list-params";
+import {
+  ReferenceStatusDialog,
+  type ChangeReferenceStatus,
+  type ReferenceActionTarget,
+} from "./status-dialog";
 
-type CustomerCardActionsProps = {
-  customer: CustomerActionTarget;
+type ReferenceCardActionsProps = {
+  section: ReferenceSection;
+  target: ReferenceActionTarget;
+  changeStatus: ChangeReferenceStatus;
   viewer: Pick<SessionUser, "role">;
 };
 
-export function CustomerCardActions({ customer, viewer }: CustomerCardActionsProps) {
-  const t = useTranslations("customers.actions");
+export function ReferenceCardActions({
+  section,
+  target,
+  changeStatus,
+  viewer,
+}: ReferenceCardActionsProps) {
+  const t = useTranslations("referenceBooks.actions");
   const [confirming, setConfirming] = useState(false);
 
   return (
     <div className="flex flex-wrap gap-2">
-      {can(viewer, "customers.update") && (
+      {can(viewer, `${section}.update`) && (
         <Button variant="outline" asChild>
-          <Link href={`/customers/${customer.id}/edit`}>
+          <Link href={`/${section}/${target.id}/edit`}>
             <PencilIcon aria-hidden />
             {t("edit")}
           </Link>
         </Button>
       )}
-      {can(viewer, "customers.changeStatus") &&
-        (customer.isActive ? (
+      {can(viewer, `${section}.changeStatus`) &&
+        (target.isActive ? (
           <Button variant="destructive" onClick={() => setConfirming(true)}>
             <ArchiveIcon aria-hidden />
             {t("archive")}
@@ -43,7 +55,13 @@ export function CustomerCardActions({ customer, viewer }: CustomerCardActionsPro
           </Button>
         ))}
 
-      <CustomerStatusDialog customer={customer} open={confirming} onOpenChange={setConfirming} />
+      <ReferenceStatusDialog
+        section={section}
+        target={target}
+        changeStatus={changeStatus}
+        open={confirming}
+        onOpenChange={setConfirming}
+      />
     </div>
   );
 }

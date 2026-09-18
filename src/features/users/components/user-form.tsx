@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { RecordPicker, type RecordOption } from "@/components/reference-book/record-picker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -28,15 +29,17 @@ import { can } from "@/lib/permissions";
 import { createUser, updateUser } from "../actions";
 import { USER_ROLES } from "../list-params";
 import type { UserDetails } from "../queries";
-import { createUserSchema, editUserFormSchema, type CreateUserInput } from "../schemas";
+import { createUserFormSchema, editUserFormSchema, type UserFormInput } from "../schemas";
 
 type UserFormProps = {
   /** The user being edited; omitted when creating one. */
   user?: UserDetails;
   viewer: Pick<SessionUser, "role">;
+  /** The contractors to link the account to; given only to those who may link it. */
+  contractors?: RecordOption[];
 };
 
-function toFormValues(user: UserDetails | undefined): CreateUserInput {
+function toFormValues(user: UserDetails | undefined): UserFormInput {
   return {
     login: user?.login ?? "",
     password: "",
@@ -47,10 +50,11 @@ function toFormValues(user: UserDetails | undefined): CreateUserInput {
     role: user?.role ?? "EMPLOYEE",
     isActive: user?.isActive ?? true,
     comment: user?.comment ?? "",
+    contractorId: user?.contractor?.id ?? "",
   };
 }
 
-export function UserForm({ user, viewer }: UserFormProps) {
+export function UserForm({ user, viewer, contractors }: UserFormProps) {
   const t = useTranslations();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -60,15 +64,17 @@ export function UserForm({ user, viewer }: UserFormProps) {
   const statusLocked = !!user && !can(viewer, "users.changeStatus");
   const commentLocked = !!user && !can(viewer, "users.update");
 
-  const form = useForm<CreateUserInput>({
-    resolver: zodResolver(user ? editUserFormSchema : createUserSchema),
+  const form = useForm<UserFormInput>({
+    resolver: zodResolver(user ? editUserFormSchema : createUserFormSchema),
     defaultValues: toFormValues(user),
   });
   const { errors, isDirty, isSubmitting, isSubmitSuccessful } = form.formState;
+  // Only a contractor account belongs to an organisation (docs/ТЗ.md, 6.5).
+  const isContractor = form.watch("role") === "CONTRACTOR";
 
   function showFailure(failure: ActionFailure) {
     for (const [field, messages] of Object.entries(failure.fieldErrors ?? {})) {
-      if (messages?.[0]) form.setError(field as keyof CreateUserInput, { message: messages[0] });
+      if (messages?.[0]) form.setError(field as keyof UserFormInput, { message: messages[0] });
     }
     if (failure.error) {
       form.setError("root.server", { message: t(failure.error, failure.errorValues) });
@@ -76,10 +82,14 @@ export function UserForm({ user, viewer }: UserFormProps) {
   }
 
   /** The id of the saved user, or null when the save failed and the form shows why. */
-  async function save(values: CreateUserInput): Promise<string | null> {
+  async function save({ contractorId, ...values }: UserFormInput): Promise<string | null> {
+    // Without the right the organisation is not sent at all: the server refuses it otherwise.
+    const input = contractors
+      ? { ...values, contractorId: values.role === "CONTRACTOR" ? contractorId : "" }
+      : values;
     const result = user
-      ? { ...(await updateUser(user.id, values)), id: user.id }
-      : await createUser(values);
+      ? { ...(await updateUser(user.id, input)), id: user.id }
+      : await createUser(input);
     if (!result.ok) {
       showFailure(result);
       return null;
@@ -88,7 +98,7 @@ export function UserForm({ user, viewer }: UserFormProps) {
     return result.id;
   }
 
-  async function onSubmit(values: CreateUserInput) {
+  async function onSubmit(values: UserFormInput) {
     const id = await save(values);
     if (id) router.push(`/users/${id}`);
   }
@@ -107,7 +117,7 @@ export function UserForm({ user, viewer }: UserFormProps) {
     <>
       <UnsavedChangesGuard when={isDirty && !isSubmitSuccessful} onSave={saveBeforeLeaving} />
       <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
-        <FieldGroup className="grid md:grid-cols-2">
+        <FieldGroup className="grid grid-cols-1 md:grid-cols-2">
           <Field data-invalid={!!errors.login}>
             <FieldLabel htmlFor="login">{t("users.fields.login")}</FieldLabel>
             {user ? (
@@ -228,6 +238,32 @@ export function UserForm({ user, viewer }: UserFormProps) {
             />
             <FieldError>{fieldError(errors.role?.message)}</FieldError>
           </Field>
+
+          {contractors && isContractor && (
+            <Field data-invalid={!!errors.contractorId}>
+              <FieldLabel htmlFor="contractorId">{t("users.fields.contractor")}</FieldLabel>
+              <Controller
+                control={form.control}
+                name="contractorId"
+                render={({ field }) => (
+                  <RecordPicker
+                    id="contractorId"
+                    ref={field.ref}
+                    options={contractors}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    invalid={!!errors.contractorId}
+                    noneLabel={t("users.form.contractorNone")}
+                    searchLabel={t("users.form.contractorSearch")}
+                    nothingFound={t("users.form.contractorNothingFound")}
+                  />
+                )}
+              />
+              <FieldDescription>{t("users.form.contractorHint")}</FieldDescription>
+              <FieldError>{fieldError(errors.contractorId?.message)}</FieldError>
+            </Field>
+          )}
 
           <Field orientation="horizontal" className="md:col-span-2">
             <Controller

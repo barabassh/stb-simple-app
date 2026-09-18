@@ -12,25 +12,31 @@ import { ReferenceRowActions } from "@/components/reference-book/row-actions";
 import { ReferenceStatusBadge } from "@/components/reference-book/status-badge";
 import type { SessionUser } from "@/lib/auth/session";
 
-import { changeCustomerStatus } from "../actions";
-import type { CustomerSortColumn } from "../list-params";
-import type { CustomerListItem } from "../queries";
+import { changeContractorStatus } from "../actions";
+import type { ContractorSortColumn } from "../list-params";
+import type { ContractorListItem } from "../queries";
 
-const columnHelper = createColumnHelper<DataTableFeatures, CustomerListItem>();
+const columnHelper = createColumnHelper<DataTableFeatures, ContractorListItem>();
 
-type CustomersTableProps = {
-  rows: CustomerListItem[];
+type ContractorsTableProps = {
+  rows: ContractorListItem[];
   rowCount: number;
-  state: TableState<CustomerSortColumn>;
+  state: TableState<ContractorSortColumn>;
   emptyState?: React.ReactNode;
   viewer: Pick<SessionUser, "role">;
 };
 
-export function CustomersTable({ rows, rowCount, state, emptyState, viewer }: CustomersTableProps) {
-  const t = useTranslations("customers");
+export function ContractorsTable({
+  rows,
+  rowCount,
+  state,
+  emptyState,
+  viewer,
+}: ContractorsTableProps) {
+  const t = useTranslations("contractors");
   const tShared = useTranslations("referenceBooks");
 
-  // Column ids match CUSTOMER_SORT_COLUMNS: the table writes them to the URL as the sort parameter.
+  // Column ids match CONTRACTOR_SORT_COLUMNS: the table writes them to the URL as the sort parameter.
   const columns = useMemo(
     () =>
       columnHelper.columns([
@@ -38,16 +44,12 @@ export function CustomersTable({ rows, rowCount, state, emptyState, viewer }: Cu
           header: t("columns.name"),
           cell: ({ row }) => (
             <Link
-              href={`/customers/${row.original.id}`}
+              href={`/contractors/${row.original.id}`}
               className="font-medium underline-offset-4 hover:underline"
             >
               {row.original.name}
             </Link>
           ),
-        }),
-        columnHelper.accessor("type", {
-          header: t("columns.type"),
-          cell: ({ getValue }) => t(`types.${getValue()}`),
         }),
         columnHelper.accessor("kvkNumber", {
           header: t("columns.kvkNumber"),
@@ -78,9 +80,9 @@ export function CustomersTable({ rows, rowCount, state, emptyState, viewer }: Cu
           header: () => <span className="sr-only">{tShared("list.actionsColumn")}</span>,
           cell: ({ row }) => (
             <ReferenceRowActions
-              section="customers"
+              section="contractors"
               target={row.original}
-              changeStatus={changeCustomerStatus}
+              changeStatus={changeContractorStatus}
               viewer={viewer}
             />
           ),

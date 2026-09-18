@@ -104,6 +104,7 @@ export async function getUser(actor: SessionUser, id: string) {
       comment: true,
       role: true,
       isActive: true,
+      contractor: { select: { id: true, name: true, isActive: true } },
       lastLoginAt: true,
       createdAt: true,
       updatedAt: true,
@@ -114,6 +115,19 @@ export async function getUser(actor: SessionUser, id: string) {
 }
 
 export type UserDetails = NonNullable<Awaited<ReturnType<typeof getUser>>>;
+
+/** The accounts linked to a contractor, for the "Учётные записи" tab of its card (docs/ТЗ.md, 6.5). */
+export async function listContractorUsers(actor: SessionUser, contractorId: string) {
+  requirePermission(actor, "users.read");
+
+  return db.user.findMany({
+    where: { contractorId },
+    select: { id: true, login: true, fullName: true, isActive: true },
+    orderBy: [{ fullName: "asc" }, { id: "asc" }],
+  });
+}
+
+export type ContractorUserItem = Awaited<ReturnType<typeof listContractorUsers>>[number];
 
 function findActiveSessions(userId: string) {
   return db.session.findMany({

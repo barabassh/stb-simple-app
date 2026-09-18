@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
+import { referenceStatusName } from "@/components/reference-book/status-name";
 import { defineExportReport } from "@/lib/export";
 
 import { parseCustomersListParams } from "./list-params";
@@ -23,8 +24,9 @@ export const customersExport = defineExportReport<CustomerExportRow>({
   permission: "customers.export",
   entity: "Customer",
   async load(actor, searchParams) {
-    const [t, customers] = await Promise.all([
+    const [t, tAll, customers] = await Promise.all([
       getTranslations("customers"),
+      getTranslations(),
       listCustomersForExport(actor, parseCustomersListParams(searchParams)),
     ]);
 
@@ -48,7 +50,7 @@ export const customersExport = defineExportReport<CustomerExportRow>({
         phone: customer.phone,
         email: customer.email,
         city: customer.city,
-        status: t(customer.isActive ? "statuses.active" : "statuses.archived"),
+        status: referenceStatusName(customer.isActive, tAll),
       })),
     };
   },

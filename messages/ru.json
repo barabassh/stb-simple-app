@@ -179,7 +179,8 @@
       "status": "Статус",
       "lastLoginAt": "Последний вход",
       "createdAt": "Дата создания",
-      "comment": "Комментарий"
+      "comment": "Комментарий",
+      "contractor": "Организация"
     },
     "form": {
       "createTitle": "Новый пользователь",
@@ -192,7 +193,11 @@
       "loginHint": "От 3 до 32 символов: латинские буквы, цифры, точка, дефис, подчёркивание",
       "loginLocked": "Логин не меняется после создания",
       "passwordHint": "Не короче 10 символов, буквы и цифры, не совпадает с логином",
-      "showPassword": "Показать пароль"
+      "showPassword": "Показать пароль",
+      "contractorHint": "Необязательно: подрядчик, в котором работает пользователь",
+      "contractorSearch": "Поиск подрядчика",
+      "contractorNone": "Не выбрана",
+      "contractorNothingFound": "Подрядчики не найдены"
     },
     "actions": {
       "open": "Открыть",
@@ -266,17 +271,53 @@
       "commentTooLong": "Комментарий — не длиннее 500 символов",
       "roleRequired": "Выберите роль",
       "contractorInvalid": "Выберите организацию из списка",
-      "contractorRoleOnly": "Организация указывается только для роли «Подрядчик»"
+      "contractorRoleOnly": "Организация указывается только для роли «Подрядчик»",
+      "contractorArchived": "Подрядчик в архиве: выберите активного"
     }
+  },
+  "referenceBooks": {
+    "statuses": {
+      "active": "Активен",
+      "archived": "В архиве"
+    },
+    "list": {
+      "statusFilter": "Статус",
+      "statusFilters": {
+        "active": "Активные",
+        "archived": "В архиве",
+        "all": "Все статусы"
+      },
+      "resetFilters": "Сбросить фильтры",
+      "nothingFound": "По заданным фильтрам ничего не найдено",
+      "rowActions": "Действия: {name}",
+      "actionsColumn": "Действия"
+    },
+    "actions": {
+      "open": "Открыть",
+      "edit": "Редактировать",
+      "archive": "В архив",
+      "restore": "Восстановить"
+    },
+    "card": {
+      "tabs": {
+        "details": "Сведения",
+        "history": "История изменений"
+      }
+    },
+    "form": {
+      "create": "Создать",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "addressHint": "Адрес заполняется целиком или остаётся пустым",
+      "selectPlaceholder": "Выберите",
+      "notSelected": "Не выбрано"
+    },
+    "archivedMark": "{name} (в архиве)"
   },
   "customers": {
     "types": {
       "COMPANY": "Компания",
       "PERSON": "Частное лицо"
-    },
-    "statuses": {
-      "active": "Активен",
-      "archived": "В архиве"
     },
     "list": {
       "title": "Заказчики",
@@ -287,16 +328,7 @@
       "typeFilters": {
         "all": "Все виды"
       },
-      "statusFilter": "Статус",
-      "statusFilters": {
-        "active": "Активные",
-        "archived": "В архиве",
-        "all": "Все статусы"
-      },
-      "resetFilters": "Сбросить фильтры",
-      "empty": "Заказчиков ещё нет",
-      "nothingFound": "По заданным фильтрам ничего не найдено",
-      "rowActions": "Действия: {name}"
+      "empty": "Заказчиков ещё нет"
     },
     "export": {
       "title": "Реестр заказчиков"
@@ -309,8 +341,7 @@
       "phone": "Телефон",
       "email": "Email",
       "city": "Город",
-      "status": "Статус",
-      "actions": "Действия"
+      "status": "Статус"
     },
     "fields": {
       "type": "Вид заказчика",
@@ -327,18 +358,8 @@
     "form": {
       "createTitle": "Новый заказчик",
       "editTitle": "Редактирование заказчика",
-      "create": "Создать",
-      "save": "Сохранить",
-      "cancel": "Отмена",
       "backToList": "К списку заказчиков",
-      "backToCustomer": "К карточке заказчика",
-      "addressHint": "Адрес заполняется целиком или остаётся пустым"
-    },
-    "actions": {
-      "open": "Открыть",
-      "edit": "Редактировать",
-      "archive": "В архив",
-      "restore": "Восстановить"
+      "backToCustomer": "К карточке заказчика"
     },
     "dialogs": {
       "archive": {
@@ -354,9 +375,7 @@
     },
     "card": {
       "tabs": {
-        "details": "Сведения",
-        "projects": "Проекты",
-        "history": "История изменений"
+        "projects": "Проекты"
       },
       "projectsEmpty": "Проектов у этого заказчика пока нет"
     },
@@ -379,7 +398,68 @@
   },
   "contractors": {
     "list": {
-      "title": "Подрядчики"
+      "title": "Подрядчики",
+      "create": "Создать подрядчика",
+      "searchLabel": "Поиск подрядчиков",
+      "searchPlaceholder": "Название, KvK, контактное лицо или email",
+      "empty": "Подрядчиков ещё нет"
+    },
+    "export": {
+      "title": "Реестр подрядчиков"
+    },
+    "columns": {
+      "name": "Название",
+      "kvkNumber": "KvK-nummer",
+      "contactPerson": "Контактное лицо",
+      "phone": "Телефон",
+      "email": "Email",
+      "city": "Город",
+      "status": "Статус"
+    },
+    "fields": {
+      "name": "Название (statutaire naam)",
+      "legalForm": "Правовая форма (rechtsvorm)",
+      "kvkNumber": "Номер Торговой палаты (KvK-nummer)",
+      "vatId": "Идентификационный номер НДС (btw-id)",
+      "contactPerson": "Контактное лицо",
+      "email": "Email",
+      "phone": "Телефон",
+      "address": "Адрес",
+      "comment": "Комментарий"
+    },
+    "form": {
+      "createTitle": "Новый подрядчик",
+      "editTitle": "Редактирование подрядчика",
+      "backToList": "К списку подрядчиков",
+      "backToContractor": "К карточке подрядчика"
+    },
+    "dialogs": {
+      "archive": {
+        "title": "Перевести подрядчика в архив?",
+        "description": "{name} больше не будет предлагаться при привязке учётных записей. Уже привязанные учётные записи сохранят организацию, история изменений останется. Вернуть его можно восстановлением.",
+        "confirm": "В архив"
+      },
+      "restore": {
+        "title": "Восстановить подрядчика?",
+        "description": "{name} снова появится в списке активных подрядчиков и в выборе организации пользователя.",
+        "confirm": "Восстановить"
+      }
+    },
+    "card": {
+      "tabs": {
+        "accounts": "Учётные записи"
+      },
+      "accountsEmpty": "К этому подрядчику не привязана ни одна учётная запись"
+    },
+    "toasts": {
+      "created": "Подрядчик создан",
+      "updated": "Изменения сохранены",
+      "archived": "Подрядчик перенесён в архив",
+      "restored": "Подрядчик восстановлен"
+    },
+    "errors": {
+      "notFound": "Подрядчик не найден",
+      "kvkTaken": "Подрядчик с таким номером Торговой палаты уже есть"
     },
     "validation": {
       "nameLength": "Название подрядчика должно содержать от 2 до 200 символов",
@@ -456,7 +536,8 @@
         "phone": "Телефон",
         "role": "Роль",
         "isActive": "Статус",
-        "comment": "Комментарий"
+        "comment": "Комментарий",
+        "contractor": "Организация"
       },
       "CompanyProfile": {
         "legalName": "Название компании",
@@ -485,6 +566,18 @@
       "Customer": {
         "type": "Вид заказчика",
         "name": "Название / ФИО",
+        "kvkNumber": "Номер Торговой палаты",
+        "vatId": "Идентификационный номер НДС",
+        "contactPerson": "Контактное лицо",
+        "email": "Email",
+        "phone": "Телефон",
+        "address": "Адрес",
+        "comment": "Комментарий",
+        "isActive": "Статус"
+      },
+      "Contractor": {
+        "name": "Название",
+        "legalForm": "Правовая форма",
         "kvkNumber": "Номер Торговой палаты",
         "vatId": "Идентификационный номер НДС",
         "contactPerson": "Контактное лицо",
@@ -559,7 +652,11 @@
       "customerCreated": "Создан заказчик «{name}»",
       "customerUpdated": "Изменены данные заказчика «{name}»",
       "customerArchived": "Заказчик «{name}» перенесён в архив",
-      "customerRestored": "Заказчик «{name}» восстановлен из архива"
+      "customerRestored": "Заказчик «{name}» восстановлен из архива",
+      "contractorCreated": "Создан подрядчик «{name}»",
+      "contractorUpdated": "Изменены данные подрядчика «{name}»",
+      "contractorArchived": "Подрядчик «{name}» перенесён в архив",
+      "contractorRestored": "Подрядчик «{name}» восстановлен из архива"
     }
   },
   "profile": {

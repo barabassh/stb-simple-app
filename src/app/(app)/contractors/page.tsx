@@ -1,15 +1,42 @@
-import { getTranslations } from "next-intl/server";
-
+import { ReferenceRegistry } from "@/components/reference-book/registry";
+import { ContractorsTable } from "@/features/contractors/components/contractors-table";
+import { contractorsExport } from "@/features/contractors/export";
+import {
+  hasContractorFilters,
+  parseContractorsListParams,
+} from "@/features/contractors/list-params";
+import { listContractors } from "@/features/contractors/queries";
 import { requirePagePermission } from "@/lib/auth/current-user";
 
-// The registry itself arrives in step 20.
-export default async function ContractorsPage() {
-  await requirePagePermission("contractors.read");
-  const t = await getTranslations("contractors.list");
+type ContractorsPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ContractorsPage({ searchParams }: ContractorsPageProps) {
+  const viewer = await requirePagePermission("contractors.read");
+
+  const resolvedSearchParams = await searchParams;
+  const params = parseContractorsListParams(resolvedSearchParams);
+  const { rows, rowCount } = await listContractors(viewer, params);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold sm:text-2xl">{t("title")}</h1>
-    </div>
+    <ReferenceRegistry
+      section="contractors"
+      viewer={viewer}
+      report={contractorsExport}
+      searchParams={resolvedSearchParams}
+      filters={params}
+      hasFilters={hasContractorFilters(params)}
+      rowCount={rowCount}
+      table={(emptyState) => (
+        <ContractorsTable
+          rows={rows}
+          rowCount={rowCount}
+          state={params.table}
+          emptyState={emptyState}
+          viewer={viewer}
+        />
+      )}
+    />
   );
 }

@@ -5,11 +5,12 @@ import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
+import type { Role } from "@/generated/prisma/enums";
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
 import { diffEntity, logAudit } from "@/lib/audit";
 import { authorizedAction } from "@/lib/auth/authorized-action";
 import { hashPassword } from "@/lib/auth/password";
-import { invalidateAllUserSessions, invalidateSession } from "@/lib/auth/session";
+import { invalidateAllUserSessions, invalidateSession, type SessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { requirePermission, userUpdatePermission } from "@/lib/permissions";
 import { getClientInfo } from "@/lib/request-info";
@@ -17,6 +18,7 @@ import { describeUserAgent } from "@/lib/user-agent";
 
 import { logUserChanges, USER_AUDIT_SELECT, userAuditSnapshot } from "./audit";
 import {
+  contractorLinkSchema,
   createUserSchema,
   profileSchema,
   resetPasswordSchema,
@@ -37,10 +39,78 @@ const cannotDeactivateSelf: ActionFailure = {
   ok: false,
   error: "users.errors.cannotDeactivateSelf",
 };
+const contractorInvalid: ActionFailure = {
+  ok: false,
+  fieldErrors: { contractorId: ["users.validation.contractorInvalid"] },
+};
+const contractorArchived: ActionFailure = {
+  ok: false,
+  fieldErrors: { contractorId: ["users.validation.contractorArchived"] },
+};
 
-function validationFailure(error: z.ZodError): ActionFailure {
-  return { ok: false, fieldErrors: z.flattenError(error).fieldErrors };
+/** The field errors of every schema the input failed, each message once. */
+function validationFailure(...errors: (z.ZodError | undefined)[]): ActionFailure {
+  const fieldErrors: Record<string, string[]> = {};
+  for (const error of errors) {
+    if (!error) continue;
+    const flattened: Record<string, string[] | undefined> = z.flattenError(error).fieldErrors;
+    for (const [field, messages = []] of Object.entries(flattened)) {
+      fieldErrors[field] = [...new Set([...(fieldErrors[field] ?? []), ...messages])];
+    }
+  }
+  return { ok: false, fieldErrors };
 }
+
+/**
+ * The organisation part of the account form (docs/ТЗ.md, 6.5). The field is sent only by the form
+ * of those who may link an account, so sending it without users.changeContractor is refused like
+ * a role change (docs/ПРАВА-ДОСТУПА.md, 14). `requested` is undefined when it was not sent: the
+ * current link stays unless the role changes.
+ */
+function parseContractorLink(actor: SessionUser, input: unknown) {
+  const sent =
+    typeof input === "object" && input !== null && "contractorId" in input
+      ? input.contractorId !== undefined
+      : false;
+  if (!sent) return { requested: undefined, error: undefined };
+
+  requirePermission(actor, "users.changeContractor");
+  const parsed = contractorLinkSchema.safeParse(input);
+  return parsed.success
+    ? { requested: parsed.data.contractorId || null, error: undefined }
+    : { requested: undefined, error: parsed.error };
+}
+
+type ContractorLink = { contractorId: string | null; contractor: { name: string } | null };
+
+/**
+ * The contractor the saved account is linked to. Only a contractor account has one, so another
+ * role clears it. A newly chosen contractor must be active; an archived one the account is already
+ * linked to stays (docs/ПРАВА-ДОСТУПА.md, 13).
+ */
+async function resolveContractorLink(
+  tx: Prisma.TransactionClient,
+  role: Role,
+  requested: string | null | undefined,
+  current: ContractorLink,
+): Promise<ContractorLink | ActionFailure> {
+  const kept = requested === undefined ? current.contractorId : requested;
+  const contractorId = role === "CONTRACTOR" ? kept : null;
+  if (contractorId === current.contractorId) {
+    return { contractorId, contractor: current.contractor };
+  }
+  if (contractorId === null) return { contractorId: null, contractor: null };
+
+  const contractor = await tx.contractor.findUnique({
+    where: { id: contractorId },
+    select: { name: true, isActive: true },
+  });
+  if (!contractor) return contractorInvalid;
+  if (!contractor.isActive) return contractorArchived;
+  return { contractorId, contractor: { name: contractor.name } };
+}
+
+const isFailure = (value: ContractorLink | ActionFailure): value is ActionFailure => "ok" in value;
 
 function toProfileData<T extends z.output<typeof profileSchema>>({
   position,
@@ -109,17 +179,31 @@ async function uniqueViolation(
 export const createUser = authorizedAction(
   "users.create",
   async (actor, input: unknown): Promise<ActionResult<{ id: string }>> => {
+    const link = parseContractorLink(actor, input);
     const parsed = createUserSchema.safeParse(input);
-    if (!parsed.success) return validationFailure(parsed.error);
+    if (!parsed.success || link.error) return validationFailure(parsed.error, link.error);
     const { login, password, ...account } = parsed.data;
     const data = toAccountData(account);
     const passwordHash = await hashPassword(password);
     const { t, request } = await auditContext();
 
     try {
-      const id = await db.$transaction(async (tx) => {
+      const result = await db.$transaction(async (tx): Promise<ActionResult<{ id: string }>> => {
+        const contractor = await resolveContractorLink(tx, data.role, link.requested, {
+          contractorId: null,
+          contractor: null,
+        });
+        if (isFailure(contractor)) return contractor;
+
         const { id, ...created } = await tx.user.create({
-          data: { ...data, login, passwordHash, createdById: actor.id, updatedById: actor.id },
+          data: {
+            ...data,
+            contractorId: contractor.contractorId,
+            login,
+            passwordHash,
+            createdById: actor.id,
+            updatedById: actor.id,
+          },
           select: { id: true, ...USER_AUDIT_SELECT },
         });
         await logAudit(tx, {
@@ -131,11 +215,11 @@ export const createUser = authorizedAction(
           summary: t("audit.summaries.userCreated", { login }),
           changes: diffEntity(null, userAuditSnapshot(created, t)),
         });
-        return id;
+        return { ok: true, id };
       });
 
-      revalidatePath(USERS_PATH, "layout");
-      return { ok: true, id };
+      if (result.ok) revalidatePath(USERS_PATH, "layout");
+      return result;
     } catch (error) {
       const failure = await uniqueViolation(error, { login, email: data.email });
       if (failure) return failure;
@@ -152,8 +236,9 @@ export const updateUser = authorizedAction(
   "users.updateProfile",
   async (actor, id: string, input: unknown): Promise<ActionResult> => {
     if (!userIdSchema.safeParse(id).success) return notFound;
+    const link = parseContractorLink(actor, input);
     const parsed = updateUserSchema.safeParse(input);
-    if (!parsed.success) return validationFailure(parsed.error);
+    if (!parsed.success || link.error) return validationFailure(parsed.error, link.error);
     const data = toAccountData(parsed.data);
 
     if (!data.isActive && id === actor.id) return cannotDeactivateSelf;
@@ -171,15 +256,20 @@ export const updateUser = authorizedAction(
         if (isLastActiveAdmin(adminIds, id) && (data.role !== "ADMIN" || !data.isActive)) {
           return lastAdmin;
         }
+        const contractor = await resolveContractorLink(tx, data.role, link.requested, target);
+        if (isFailure(contractor)) return contractor;
 
         const changes = diffEntity(
           userAuditSnapshot(target, t),
-          userAuditSnapshot({ ...target, ...data }, t),
+          userAuditSnapshot({ ...target, ...data, ...contractor }, t),
         );
         // An unchanged form writes nothing, so "Изменено" keeps pointing at the last real change.
         if (changes.length === 0) return { ok: true };
 
-        await tx.user.update({ where: { id }, data: { ...data, updatedById: actor.id } });
+        await tx.user.update({
+          where: { id },
+          data: { ...data, contractorId: contractor.contractorId, updatedById: actor.id },
+        });
         if (target.isActive && !data.isActive) {
           await invalidateAllUserSessions(id, { client: tx });
         }

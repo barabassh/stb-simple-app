@@ -16,15 +16,27 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 import { can } from "@/lib/permissions";
 
-import { CustomerStatusDialog, type CustomerActionTarget } from "./customer-status-dialog";
+import type { ReferenceSection } from "./list-params";
+import {
+  ReferenceStatusDialog,
+  type ChangeReferenceStatus,
+  type ReferenceActionTarget,
+} from "./status-dialog";
 
-type CustomerRowActionsProps = {
-  customer: CustomerActionTarget;
+type ReferenceRowActionsProps = {
+  section: ReferenceSection;
+  target: ReferenceActionTarget;
+  changeStatus: ChangeReferenceStatus;
   viewer: Pick<SessionUser, "role">;
 };
 
-export function CustomerRowActions({ customer, viewer }: CustomerRowActionsProps) {
-  const t = useTranslations("customers");
+export function ReferenceRowActions({
+  section,
+  target,
+  changeStatus,
+  viewer,
+}: ReferenceRowActionsProps) {
+  const t = useTranslations("referenceBooks");
   const [confirming, setConfirming] = useState(false);
 
   return (
@@ -35,46 +47,48 @@ export function CustomerRowActions({ customer, viewer }: CustomerRowActionsProps
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={t("list.rowActions", { name: customer.name })}
+            aria-label={t("list.rowActions", { name: target.name })}
           >
             <EllipsisIcon />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-auto">
           <DropdownMenuItem asChild>
-            <Link href={`/customers/${customer.id}`}>
+            <Link href={`/${section}/${target.id}`}>
               <EyeIcon aria-hidden />
               {t("actions.open")}
             </Link>
           </DropdownMenuItem>
-          {can(viewer, "customers.update") && (
+          {can(viewer, `${section}.update`) && (
             <DropdownMenuItem asChild>
-              <Link href={`/customers/${customer.id}/edit`}>
+              <Link href={`/${section}/${target.id}/edit`}>
                 <PencilIcon aria-hidden />
                 {t("actions.edit")}
               </Link>
             </DropdownMenuItem>
           )}
-          {can(viewer, "customers.changeStatus") && (
+          {can(viewer, `${section}.changeStatus`) && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                variant={customer.isActive ? "destructive" : "default"}
+                variant={target.isActive ? "destructive" : "default"}
                 onSelect={() => setConfirming(true)}
               >
-                {customer.isActive ? (
-                  <ArchiveIcon aria-hidden />
-                ) : (
-                  <ArchiveRestoreIcon aria-hidden />
-                )}
-                {t(customer.isActive ? "actions.archive" : "actions.restore")}
+                {target.isActive ? <ArchiveIcon aria-hidden /> : <ArchiveRestoreIcon aria-hidden />}
+                {t(target.isActive ? "actions.archive" : "actions.restore")}
               </DropdownMenuItem>
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <CustomerStatusDialog customer={customer} open={confirming} onOpenChange={setConfirming} />
+      <ReferenceStatusDialog
+        section={section}
+        target={target}
+        changeStatus={changeStatus}
+        open={confirming}
+        onOpenChange={setConfirming}
+      />
     </>
   );
 }

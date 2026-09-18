@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { COUNTRY_CODES } from "./countries";
+import { COUNTRY_CODES, DEFAULT_COUNTRY, type CountryCode } from "./countries";
 import {
   isDutchPostcode,
   isKvkNumber,
@@ -179,4 +179,52 @@ export function isBlankAddress(address: AddressValues & { name?: string }): bool
         address.city,
       ];
   return fields.every((value) => value === "");
+}
+
+export type AddressInput = z.input<ReturnType<typeof addressSchema>>;
+export type AddressOutput = z.output<ReturnType<typeof addressSchema>>;
+
+/** A street address kept in the columns of the record it belongs to (a customer, a contractor). */
+export type AddressColumns = {
+  street: string | null;
+  houseNumber: number | null;
+  houseNumberAddition: string | null;
+  postcode: string | null;
+  city: string | null;
+  country: string | null;
+};
+
+export const emptyAddressInput: AddressInput = {
+  street: "",
+  houseNumber: "",
+  houseNumberAddition: "",
+  postcode: "",
+  city: "",
+  country: DEFAULT_COUNTRY,
+};
+
+/** The stored columns. An address is kept whole or not at all, so a blank one clears every field. */
+export function addressColumns(address: AddressOutput): AddressColumns {
+  const blank = isBlankAddress(address);
+
+  return {
+    street: blank ? null : address.street,
+    houseNumber: blank ? null : Number(address.houseNumber),
+    houseNumberAddition: blank ? null : address.houseNumberAddition || null,
+    postcode: blank ? null : address.postcode,
+    city: blank ? null : address.city,
+    country: blank ? null : address.country,
+  };
+}
+
+/** The address as the form edits it; a record without one opens with an empty Dutch address. */
+export function addressInput(columns: AddressColumns): AddressInput {
+  return {
+    street: columns.street ?? "",
+    houseNumber: columns.houseNumber?.toString() ?? "",
+    houseNumberAddition: columns.houseNumberAddition ?? "",
+    postcode: columns.postcode ?? "",
+    city: columns.city ?? "",
+    country: (columns.country as CountryCode | null) ?? DEFAULT_COUNTRY,
+  };
 }
