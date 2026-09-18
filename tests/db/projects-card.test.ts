@@ -144,7 +144,10 @@ describe("changeProjectStatus", () => {
   it("refuses an employee and answers for a deleted project that it is not found", async () => {
     const admin = await createUser({ role: "ADMIN" });
     const deleted = await createdBy(admin, "2026-001");
-    const open = await createProject(projectInput(await createCustomer(), "2026-002"));
+    const open = await createProject({
+      ...projectInput(await createCustomer(), "2026-002"),
+      name: "Nieuwbouw loods",
+    });
     if (!open.ok) throw new Error("The project was not created");
     await deleteProject(deleted);
 

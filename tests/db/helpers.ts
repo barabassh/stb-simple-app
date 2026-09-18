@@ -14,6 +14,7 @@ let sequence = 0;
 type NewUser = {
   login?: string;
   fullName?: string;
+  nickname?: string;
   role?: Role;
   isActive?: boolean;
   position?: string;
@@ -24,11 +25,14 @@ type NewUser = {
 export async function createUser(user: NewUser = {}) {
   sequence += 1;
   passwordHash ??= hashPassword(PASSWORD);
+  const login = user.login ?? `user${sequence}`;
 
   return db.user.create({
     data: {
-      login: `user${sequence}`,
+      login,
       fullName: `Test User ${sequence}`,
+      // The login is unique, so it is a free nickname too.
+      nickname: login,
       ...user,
       passwordHash: await passwordHash,
     },

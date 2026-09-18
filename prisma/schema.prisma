@@ -36,6 +36,8 @@ model User {
   // Stored lowercased: the unique index is case-sensitive in PostgreSQL.
   login              String    @unique
   fullName           String
+  // Unique ignoring case: an index on lower("nickname") in the migration, not @unique.
+  nickname           String
   position           String?
   email              String?   @unique
   phone              String?
@@ -79,6 +81,12 @@ model User {
   closedProjects          Project[]        @relation("ProjectClosedBy")
   createdProjects         Project[]        @relation("ProjectCreatedBy")
   updatedProjects         Project[]        @relation("ProjectUpdatedBy")
+
+  workReports             WorkReport[]     @relation("WorkReportUser")
+  approvedWorkReports     WorkReport[]     @relation("WorkReportApprovedBy")
+  unapprovedWorkReports   WorkReport[]     @relation("WorkReportUnapprovedBy")
+  createdWorkReports      WorkReport[]     @relation("WorkReportCreatedBy")
+  updatedWorkReports      WorkReport[]     @relation("WorkReportUpdatedBy")
 
   @@index([role])
   @@index([isActive])
@@ -360,6 +368,7 @@ model Contractor {
   createdBy           User?         @relation("ContractorCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy           User?         @relation("ContractorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   users               User[]        @relation("UserContractor")
+  workReports         WorkReport[]
 
   @@index([name])
   @@index([isActive])
@@ -403,8 +412,61 @@ model Project {
   closedBy            User?         @relation("ProjectClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
   createdBy           User?         @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy           User?         @relation("ProjectUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  workReports         WorkReport[]
 
   @@index([status, startDate])
   @@index([customerId])
   @@index([name])
+}
+
+// Stage 4: work reports (docs/СХЕМА-БД.md, section 10).
+
+enum WorkReportStatus {
+  UNAPPROVED
+  APPROVED
+}
+
+// One day of one worker on one project. Time is the worker's wall clock in minutes from midnight,
+// with no time zone; the hours worked are calculated, not stored. Overlapping reports of a worker
+// on a day are rejected by an exclusion constraint in the migration.
+model WorkReport {
+  id                String           @id @default(cuid())
+  userId            String
+  // The worker's organisation when the report was made; NULL for the company's own employee.
+  contractorId      String?
+  projectId         String
+
+  workDate          DateTime         @db.Date
+  workDescription   String
+  startMinute       Int
+  endMinute         Int
+  lunchMinutes      Int              @default(0)
+  mileageKm         Int              @default(0)
+
+  status            WorkReportStatus @default(UNAPPROVED)
+  approvedAt        DateTime?
+  approvedById      String?
+  // The reason of the last unapproval, kept until the report is approved again.
+  unapprovalReason  String?
+  unapprovedAt      DateTime?
+  unapprovedById    String?
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdById       String?
+  updatedById       String?
+  deletedAt         DateTime?
+
+  user              User             @relation("WorkReportUser", fields: [userId], references: [id], onDelete: Restrict)
+  contractor        Contractor?      @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  approvedBy        User?            @relation("WorkReportApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  unapprovedBy      User?            @relation("WorkReportUnapprovedBy", fields: [unapprovedById], references: [id], onDelete: SetNull)
+  createdBy         User?            @relation("WorkReportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy         User?            @relation("WorkReportUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, workDate])
+  @@index([userId, workDate])
+  @@index([contractorId, workDate])
+  @@index([status, workDate])
 }

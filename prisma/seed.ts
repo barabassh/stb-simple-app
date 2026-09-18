@@ -1,3 +1,4 @@
+import { defaultNickname } from "@/features/users/nickname";
 import { Role } from "@/generated/prisma/client";
 import { hashPassword } from "@/lib/auth/password";
 import { db } from "@/lib/db";
@@ -22,10 +23,16 @@ async function main() {
     return;
   }
 
+  const users = await db.user.findMany({ select: { nickname: true } });
+  const taken = new Set(users.map(({ nickname }) => nickname.toLowerCase()));
+
   await db.user.create({
     data: {
       login: ADMIN_LOGIN,
       fullName: ADMIN_FULL_NAME,
+      nickname: defaultNickname(ADMIN_FULL_NAME, ADMIN_LOGIN, (nickname) =>
+        taken.has(nickname.toLowerCase()),
+      ),
       role: Role.ADMIN,
       passwordHash: await hashPassword(password),
     },

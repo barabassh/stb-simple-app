@@ -281,7 +281,9 @@ describe("updateProject", () => {
     const user = await manager();
     const customerId = await createCustomer("Bakker");
     await created(projectInput(customerId, { number: "2026-001" }));
-    const id = await created(projectInput(customerId, { number: "2026-002" }));
+    const id = await created(
+      projectInput(customerId, { number: "2026-002", name: "Nieuwbouw loods" }),
+    );
 
     await expect(
       updateProject(id, { ...(await openForm(user, id)), number: "2026-001" }),
@@ -300,10 +302,13 @@ describe("suggestProjectNumber", () => {
 
     expect(await suggestProjectNumber(user)).toBe(`${year}-001`);
 
-    await created(projectInput(customerId, { number: `${year}-009` }));
-    const deleted = await created(projectInput(customerId, { number: `${year}-012` }));
-    await db.project.update({ where: { id: deleted }, data: { deletedAt: new Date() } });
-    await created(projectInput(customerId, { number: `${Number(year) - 1}-500` }));
+    for (const number of [`${year}-009`, `${year}-012`, `${Number(year) - 1}-500`]) {
+      await created(projectInput(customerId, { number, name: `Project ${number}` }));
+    }
+    await db.project.updateMany({
+      where: { number: `${year}-012` },
+      data: { deletedAt: new Date() },
+    });
 
     expect(await suggestProjectNumber(user)).toBe(`${year}-013`);
   });

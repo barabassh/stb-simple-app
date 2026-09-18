@@ -17,6 +17,7 @@ import { getClientInfo } from "@/lib/request-info";
 import { describeUserAgent } from "@/lib/user-agent";
 
 import { logUserChanges, USER_AUDIT_SELECT, userAuditSnapshot } from "./audit";
+import { defaultNickname, nicknameCandidates } from "./nickname";
 import {
   contractorLinkSchema,
   createUserSchema,
@@ -143,6 +144,30 @@ async function lockActiveAdminIds(tx: Prisma.TransactionClient): Promise<string[
   return rows.map((row) => row.id);
 }
 
+/**
+ * The first free default nickname (docs/ТЗ.md, 7.4). Every candidate starts with the first one or
+ * with the login, so only the nicknames starting with those are read. The lock, held until the
+ * transaction ends, keeps two users with the same first name created at once from both getting it.
+ */
+async function freeDefaultNickname(
+  tx: Prisma.TransactionClient,
+  fullName: string,
+  login: string,
+): Promise<string> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('User.nickname'))`;
+  const [first = login] = nicknameCandidates(fullName, login);
+  const taken = await tx.user.findMany({
+    where: {
+      OR: [first, login].map((prefix) => ({
+        nickname: { startsWith: prefix, mode: "insensitive" as const },
+      })),
+    },
+    select: { nickname: true },
+  });
+  const takenLower = new Set(taken.map(({ nickname }) => nickname.toLowerCase()));
+  return defaultNickname(fullName, login, (nickname) => takenLower.has(nickname.toLowerCase()));
+}
+
 function isLastActiveAdmin(adminIds: string[], userId: string): boolean {
   return adminIds.length === 1 && adminIds[0] === userId;
 }
@@ -200,6 +225,7 @@ export const createUser = authorizedAction(
             ...data,
             contractorId: contractor.contractorId,
             login,
+            nickname: await freeDefaultNickname(tx, data.fullName, login),
             passwordHash,
             createdById: actor.id,
             updatedById: actor.id,

@@ -146,8 +146,8 @@ export const test = base.extend<DataFixtures, { database: Pool; passwordHash: st
       const login = uniqueLogin(role.toLowerCase());
       const fullName = `${messages.users.roles[role]} ${login.slice(-8)}`;
       await database.query(
-        `INSERT INTO "User" (id, login, "fullName", role, "passwordHash", "contractorId", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, now())`,
+        `INSERT INTO "User" (id, login, "fullName", nickname, role, "passwordHash", "contractorId", "updatedAt")
+         VALUES ($1, $2, $3, $2, $4, $5, $6, now())`,
         [id, login, fullName, role, passwordHash, contractorId ?? null],
       );
       return { id, login, fullName, role, password: PASSWORD };

@@ -46,8 +46,8 @@ async function insertWarmUpData(databaseUrl: string) {
   await client.connect();
   try {
     await client.query(
-      `INSERT INTO "User" (id, login, "fullName", role, "passwordHash", "updatedAt")
-       VALUES ($1, 'e2e.warmup', 'Warm-up', 'ADMIN', '-', now())`,
+      `INSERT INTO "User" (id, login, "fullName", nickname, role, "passwordHash", "updatedAt")
+       VALUES ($1, 'e2e.warmup', 'Warm-up', 'e2e.warmup', 'ADMIN', '-', now())`,
       [userId],
     );
     await client.query(

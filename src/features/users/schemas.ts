@@ -2,6 +2,13 @@ import { z } from "zod";
 
 import { Role } from "@/generated/prisma/enums";
 
+import {
+  hasNicknameCharacters,
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  normalizeNickname,
+} from "./nickname";
+
 // The form validates on the client and the action parses the submitted values again,
 // so the schemas only normalise strings in place: empty optional fields stay "" here
 // and become null when written.
@@ -17,6 +24,18 @@ const loginField = z
   .min(3, "users.validation.loginLength")
   .max(32, "users.validation.loginLength")
   .regex(/^[a-z0-9._-]+$/, "users.validation.loginFormat");
+
+/** docs/ТЗ.md, 7.4. Whether the nickname is taken is checked by the action. */
+export const nicknameSchema = z
+  .string()
+  .transform(normalizeNickname)
+  .pipe(
+    z
+      .string()
+      .min(NICKNAME_MIN_LENGTH, "users.validation.nicknameLength")
+      .max(NICKNAME_MAX_LENGTH, "users.validation.nicknameLength")
+      .refine(hasNicknameCharacters, "users.validation.nicknameFormat"),
+  );
 
 const passwordField = z
   .string()
