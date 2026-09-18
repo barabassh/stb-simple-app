@@ -12,8 +12,11 @@ import type { ActionResult } from "@/lib/action-result";
 import { FormFooter } from "./form-fields";
 import type { ReferenceSection } from "./list-params";
 
+/** The project form works the same way, on its own routes and messages. */
+type FormSection = ReferenceSection | "projects";
+
 type ReferenceFormProps<TInput extends FieldValues, TOutput> = {
-  section: ReferenceSection;
+  section: FormSection;
   form: UseFormReturn<TInput, unknown, TOutput>;
   /** The record being edited; omitted when creating one. */
   recordId?: string;

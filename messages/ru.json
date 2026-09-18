@@ -527,6 +527,42 @@
         "budgetWithVat": "Бюджет с НДС, €"
       }
     },
+    "fields": {
+      "number": "Номер проекта",
+      "name": "Название",
+      "customer": "Заказчик",
+      "startDate": "Дата начала",
+      "description": "Описание",
+      "budgetAmount": "Бюджет без НДС, €",
+      "vatRate": "Ставка НДС",
+      "budgetWithVat": "Бюджет с НДС, €",
+      "budgetHours": "Бюджет рабочих часов"
+    },
+    "form": {
+      "createTitle": "Новый проект",
+      "editTitle": "Редактирование проекта",
+      "backToList": "К списку проектов",
+      "backToProject": "К карточке проекта",
+      "siteAddressTitle": "Адрес объекта",
+      "siteAddressHint": "Улица, номер дома, индекс и город обязательны",
+      "budgetTitle": "Бюджет",
+      "budgetWithVatHint": "Вычисляется из суммы без НДС и ставки",
+      "customerPlaceholder": "Выберите заказчика",
+      "customerSearch": "Поиск заказчика",
+      "customerNothingFound": "Заказчик не найден",
+      "numberHint": "Предложен следующий номер года; его можно изменить",
+      "closedMessage": "Проект закрыт — изменения вносить нельзя"
+    },
+    "toasts": {
+      "created": "Проект создан",
+      "updated": "Изменения сохранены"
+    },
+    "errors": {
+      "notFound": "Проект не найден",
+      "closed": "Проект закрыт — изменения вносить нельзя",
+      "numberTaken": "Проект с таким номером уже есть",
+      "customerArchived": "Заказчик в архиве — выберите активного заказчика"
+    },
     "validation": {
       "numberRequired": "Укажите номер проекта",
       "numberTooLong": "Номер проекта — не длиннее 20 символов",
@@ -642,6 +678,18 @@
         "address": "Адрес",
         "comment": "Комментарий",
         "isActive": "Статус"
+      },
+      "Project": {
+        "number": "Номер проекта",
+        "name": "Название",
+        "customer": "Заказчик",
+        "address": "Адрес объекта",
+        "startDate": "Дата начала",
+        "description": "Описание",
+        "budgetAmount": "Бюджет без НДС",
+        "vatRate": "Ставка НДС",
+        "budgetHours": "Бюджет рабочих часов",
+        "status": "Статус"
       }
     },
     "columns": {
@@ -712,7 +760,9 @@
       "contractorCreated": "Создан подрядчик «{name}»",
       "contractorUpdated": "Изменены данные подрядчика «{name}»",
       "contractorArchived": "Подрядчик «{name}» перенесён в архив",
-      "contractorRestored": "Подрядчик «{name}» восстановлен из архива"
+      "contractorRestored": "Подрядчик «{name}» восстановлен из архива",
+      "projectCreated": "Создан проект {number} «{name}»",
+      "projectUpdated": "Изменён проект {number} «{name}»"
     }
   },
   "profile": {

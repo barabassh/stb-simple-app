@@ -3,6 +3,7 @@ import type { ProjectStatus, VatRate } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { displayTodayIso } from "@/lib/format";
 import { requirePermission } from "@/lib/permissions";
 
 import { budgetWithVat } from "./budget";
@@ -14,7 +15,9 @@ import {
   type ProjectSortColumn,
 } from "./columns";
 import { projectDuration } from "./duration";
+import type { ProjectFormRecord } from "./form-values";
 import type { ProjectsListParams } from "./list-params";
+import { nextProjectNumber } from "./number";
 
 // The select is built from the permissions of the reader (docs/АРХИТЕКТУРА.md, 3.9): fields a role
 // may not see are never read from the database, rather than being hidden by a component.
@@ -212,4 +215,75 @@ export async function listProjectsForExport(
   requirePermission(actor, "projects.export");
 
   return findProjects(projectAccess(actor), params);
+}
+
+/**
+ * The number the create form offers (docs/ТЗ.md, 6.6): the next one of the current year in
+ * Europe/Kyiv. Deleted projects count too, so that a number once used is not offered again; the
+ * number is not reserved, and a taken one is reported by the unique index when saving.
+ */
+export async function suggestProjectNumber(actor: SessionUser): Promise<string> {
+  requirePermission(actor, "projects.create");
+
+  const year = Number(displayTodayIso().slice(0, 4));
+  const projects = await db.project.findMany({
+    where: { number: { startsWith: `${year}-` } },
+    select: { number: true },
+  });
+
+  return nextProjectNumber(
+    projects.map((project) => project.number),
+    year,
+  );
+}
+
+export type ProjectForEdit = ProjectFormRecord & {
+  id: string;
+  status: ProjectStatus;
+  customer: { id: string; name: string; isActive: boolean };
+};
+
+/** A project that is not deleted, as the edit form opens it; null for anything else. */
+export async function getProjectForEdit(
+  actor: SessionUser,
+  id: string,
+): Promise<ProjectForEdit | null> {
+  requirePermission(actor, "projects.update");
+
+  const project = await db.project.findFirst({
+    where: { id, deletedAt: null },
+    select: projectFormSelect,
+  });
+  return project && toFormRecord(project);
+}
+
+export const projectFormSelect = {
+  id: true,
+  status: true,
+  number: true,
+  name: true,
+  customerId: true,
+  customer: { select: { id: true, name: true, isActive: true } },
+  street: true,
+  houseNumber: true,
+  houseNumberAddition: true,
+  postcode: true,
+  city: true,
+  country: true,
+  startDate: true,
+  description: true,
+  budgetAmount: true,
+  vatRate: true,
+  budgetHours: true,
+} as const satisfies Prisma.ProjectSelect;
+
+/** Decimals are handed on as exact strings: a client component cannot receive a Decimal. */
+export function toFormRecord(
+  project: Prisma.ProjectGetPayload<{ select: typeof projectFormSelect }>,
+): ProjectForEdit {
+  return {
+    ...project,
+    budgetAmount: project.budgetAmount?.toFixed(2) ?? null,
+    budgetHours: project.budgetHours?.toFixed(2) ?? null,
+  };
 }

@@ -19,6 +19,8 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { countryOptions } from "@/lib/nl/countries";
 
+import { RecordPicker, type RecordOption } from "./record-picker";
+
 // The fields of the customer and contractor forms (docs/ТЗ.md, 6.4–6.5), read from the form
 // context: the forms differ in a few fields, not in how a field looks or reports its error.
 
@@ -33,13 +35,14 @@ function useFieldError(name: string): string | undefined {
 type TextFieldProps = {
   name: string;
   label: string;
+  description?: string;
   className?: string;
 } & Pick<
   React.ComponentProps<"input">,
   "type" | "inputMode" | "autoCapitalize" | "spellCheck" | "autoFocus"
 >;
 
-export function TextField({ name, label, className, ...input }: TextFieldProps) {
+export function TextField({ name, label, description, className, ...input }: TextFieldProps) {
   const { register } = useFormContext();
   const error = useFieldError(name);
 
@@ -47,6 +50,7 @@ export function TextField({ name, label, className, ...input }: TextFieldProps) 
     <Field data-invalid={!!error} className={className}>
       <FieldLabel htmlFor={name}>{label}</FieldLabel>
       <Input id={name} autoComplete="off" aria-invalid={!!error} {...input} {...register(name)} />
+      {description && <FieldDescription>{description}</FieldDescription>}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -68,6 +72,56 @@ export function TextareaField({
     <Field data-invalid={!!error} className={className}>
       <FieldLabel htmlFor={name}>{label}</FieldLabel>
       <Textarea id={name} rows={3} aria-invalid={!!error} {...register(name)} />
+      <FieldError>{error}</FieldError>
+    </Field>
+  );
+}
+
+/** A record of a reference book chosen with a search line, such as the customer of a project. */
+export function RecordField({
+  name,
+  label,
+  options,
+  noneLabel,
+  placeholder,
+  searchLabel,
+  nothingFound,
+  className,
+}: {
+  name: string;
+  label: string;
+  options: RecordOption[];
+  noneLabel?: string;
+  placeholder?: string;
+  searchLabel: string;
+  nothingFound: string;
+  className?: string;
+}) {
+  const { control } = useFormContext();
+  const error = useFieldError(name);
+
+  return (
+    <Field data-invalid={!!error} className={className}>
+      <FieldLabel htmlFor={name}>{label}</FieldLabel>
+      <Controller
+        control={control}
+        name={name}
+        render={({ field }) => (
+          <RecordPicker
+            id={name}
+            ref={field.ref}
+            options={options}
+            value={(field.value as string | undefined) ?? ""}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+            invalid={!!error}
+            noneLabel={noneLabel}
+            placeholder={placeholder}
+            searchLabel={searchLabel}
+            nothingFound={nothingFound}
+          />
+        )}
+      />
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -134,8 +188,11 @@ export function SelectField({
   );
 }
 
-/** The `address` of the form, filled whole or left empty (docs/ТЗ.md, 5.4). */
-export function AddressFields() {
+/**
+ * The `address` of the form (docs/ТЗ.md, 5.4). By default it is filled whole or left empty; a
+ * required address, such as a project site, says so in its own heading and hint.
+ */
+export function AddressFields({ title, hint }: { title?: string; hint?: string } = {}) {
   const t = useTranslations();
   const locale = useLocale();
   const countries = useMemo(
@@ -147,8 +204,8 @@ export function AddressFields() {
     <>
       <div className="flex flex-col gap-2 md:col-span-2">
         <Separator />
-        <h2 className="text-base font-semibold">{t("address.title")}</h2>
-        <FieldDescription>{t("referenceBooks.form.addressHint")}</FieldDescription>
+        <h2 className="text-base font-semibold">{title ?? t("address.title")}</h2>
+        <FieldDescription>{hint ?? t("referenceBooks.form.addressHint")}</FieldDescription>
       </div>
 
       <TextField name="address.street" label={t("address.street")} className="md:col-span-2" />

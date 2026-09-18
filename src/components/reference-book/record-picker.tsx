@@ -22,6 +22,8 @@ type RecordPickerProps = {
   invalid?: boolean;
   /** Offered first when the field may be left empty. */
   noneLabel?: string;
+  /** Shown while nothing is chosen in a field that may not be left empty. */
+  placeholder?: string;
   searchLabel: string;
   nothingFound: string;
   ref?: React.Ref<HTMLButtonElement>;
@@ -39,6 +41,7 @@ export function RecordPicker({
   onBlur,
   invalid,
   noneLabel,
+  placeholder,
   searchLabel,
   nothingFound,
   ref,
@@ -114,7 +117,7 @@ export function RecordPicker({
           className="w-full justify-between font-normal"
         >
           <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>
-            {selected ? label(selected) : (noneLabel ?? "")}
+            {selected ? label(selected) : (noneLabel ?? placeholder ?? "")}
           </span>
           <ChevronsUpDownIcon aria-hidden className="text-muted-foreground" />
         </Button>

@@ -12,7 +12,7 @@ import { parseDecimalInput } from "./budget";
 const message = (key: string) => `projects.validation.${key}`;
 
 /** Up to 999 999 999 999,99 euros and 99 999 999,99 hours (docs/ТЗ.md, 6.6). */
-const AMOUNT_WHOLE_DIGITS = 12;
+export const AMOUNT_WHOLE_DIGITS = 12;
 const HOURS_WHOLE_DIGITS = 8;
 
 const decimalField = (maxWholeDigits: number, key: string) =>
