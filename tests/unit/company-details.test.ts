@@ -1,7 +1,8 @@
 import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 
-import { companyDetailGroups, type DetailGroup } from "@/features/company/details";
+import type { DetailGroup } from "@/components/details/detail-rows";
+import { companyDetailGroups } from "@/features/company/details";
 import type { CompanyProfileRecord } from "@/features/company/form-values";
 import messages from "../../messages/ru.json";
 

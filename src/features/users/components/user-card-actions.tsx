@@ -6,12 +6,12 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useRunAction } from "@/components/use-run-action";
 import type { SessionUser } from "@/lib/auth/session";
 import { can, userUpdatePermission } from "@/lib/permissions";
 
 import { toggleStatus } from "../actions";
 import { UserActionDialogs, type UserActionTarget, type UserDialog } from "./user-action-dialogs";
-import { useRunAction } from "./use-run-action";
 
 type UserCardActionsProps = {
   user: UserActionTarget;

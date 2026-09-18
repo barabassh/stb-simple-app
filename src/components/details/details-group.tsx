@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 
-import type { DetailGroup, DetailRow, DetailValue } from "../details";
+import type { DetailGroup, DetailRow, DetailValue } from "./detail-rows";
 
 const NOT_SET = "—";
 
@@ -23,7 +23,7 @@ function Value({ value }: { value: DetailValue }) {
  * phone. Names wrap between words; long values such as email addresses and links have no
  * spaces to wrap at, so they break anywhere instead of widening the page.
  */
-export function CompanyDetailRow({ label, value, badge }: Omit<DetailRow, "key">) {
+export function DetailsRow({ label, value, badge }: Omit<DetailRow, "key">) {
   return (
     <div className="grid sm:col-span-2 sm:grid-cols-subgrid">
       <dt className="px-4 pt-2.5 font-semibold break-words sm:py-2.5">{label}</dt>
@@ -36,18 +36,23 @@ export function CompanyDetailRow({ label, value, badge }: Omit<DetailRow, "key">
 }
 
 /** A framed table of a group, in two columns from 1280 px (docs/ТЗ.md, 5.6). */
-export function CompanyDetailGroup({ group }: { group: DetailGroup }) {
-  const titleId = `company-details-${group.key}`;
+export function DetailsGroup({ group }: { group: DetailGroup }) {
+  const titleId = `details-${group.key}`;
   const half = Math.ceil(group.rows.length / 2);
   const columns = [group.rows.slice(0, half), group.rows.slice(half)].filter(
     (rows) => rows.length > 0,
   );
 
   return (
-    <section aria-labelledby={titleId} className="flex min-w-0 flex-col gap-2">
-      <h3 id={titleId} className="font-medium text-muted-foreground">
-        {group.title}
-      </h3>
+    <section
+      {...(group.title ? { "aria-labelledby": titleId } : {})}
+      className="flex min-w-0 flex-col gap-2"
+    >
+      {group.title && (
+        <h3 id={titleId} className="font-medium text-muted-foreground">
+          {group.title}
+        </h3>
+      )}
       <div
         className={
           columns.length > 1
@@ -65,7 +70,7 @@ export function CompanyDetailGroup({ group }: { group: DetailGroup }) {
             style={{ gridTemplateRows: `${"auto ".repeat(rows.length - 1)}1fr` }}
           >
             {rows.map(({ key, ...row }) => (
-              <CompanyDetailRow key={key} {...row} />
+              <DetailsRow key={key} {...row} />
             ))}
           </dl>
         ))}

@@ -5,7 +5,8 @@
   },
   "common": {
     "loading": "Загрузка…",
-    "notifications": "Уведомления"
+    "notifications": "Уведомления",
+    "cancel": "Отмена"
   },
   "nav": {
     "label": "Разделы приложения",
@@ -68,7 +69,8 @@
       "description": "Произошла непредвиденная ошибка. Попробуйте повторить действие. Если ошибка повторяется, сообщите администратору код ошибки.",
       "retry": "Повторить",
       "code": "Код ошибки: {digest}"
-    }
+    },
+    "invalidRequest": "Некорректный запрос"
   },
   "validation": {
     "optionInvalid": "Выберите значение из списка",
@@ -191,8 +193,7 @@
       "edit": "Редактировать",
       "deactivate": "Деактивировать",
       "activate": "Активировать",
-      "resetPassword": "Сбросить пароль",
-      "cancel": "Отмена"
+      "resetPassword": "Сбросить пароль"
     },
     "dialogs": {
       "deactivate": {
@@ -241,7 +242,6 @@
     },
     "errors": {
       "notFound": "Пользователь не найден",
-      "invalidRequest": "Некорректный запрос",
       "lastAdmin": "Нельзя деактивировать или лишить роли последнего активного администратора",
       "cannotDeactivateSelf": "Нельзя деактивировать собственную учётную запись",
       "loginTaken": "Такой логин уже занят",
@@ -264,8 +264,105 @@
     }
   },
   "customers": {
+    "types": {
+      "COMPANY": "Компания",
+      "PERSON": "Частное лицо"
+    },
+    "statuses": {
+      "active": "Активен",
+      "archived": "В архиве"
+    },
     "list": {
-      "title": "Заказчики"
+      "title": "Заказчики",
+      "create": "Создать заказчика",
+      "searchLabel": "Поиск заказчиков",
+      "searchPlaceholder": "Название, KvK, контактное лицо или email",
+      "typeFilter": "Вид",
+      "typeFilters": {
+        "all": "Все виды"
+      },
+      "statusFilter": "Статус",
+      "statusFilters": {
+        "active": "Активные",
+        "archived": "В архиве",
+        "all": "Все статусы"
+      },
+      "resetFilters": "Сбросить фильтры",
+      "empty": "Заказчиков ещё нет",
+      "nothingFound": "По заданным фильтрам ничего не найдено",
+      "rowActions": "Действия: {name}"
+    },
+    "export": {
+      "title": "Реестр заказчиков"
+    },
+    "columns": {
+      "name": "Название / ФИО",
+      "type": "Вид",
+      "kvkNumber": "KvK-nummer",
+      "contactPerson": "Контактное лицо",
+      "phone": "Телефон",
+      "email": "Email",
+      "city": "Город",
+      "status": "Статус",
+      "actions": "Действия"
+    },
+    "fields": {
+      "type": "Вид заказчика",
+      "name": "Название компании (statutaire naam)",
+      "personName": "ФИО",
+      "kvkNumber": "Номер Торговой палаты (KvK-nummer)",
+      "vatId": "Идентификационный номер НДС (btw-id)",
+      "contactPerson": "Контактное лицо",
+      "email": "Email",
+      "phone": "Телефон",
+      "address": "Адрес",
+      "comment": "Комментарий"
+    },
+    "form": {
+      "createTitle": "Новый заказчик",
+      "editTitle": "Редактирование заказчика",
+      "create": "Создать",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "backToList": "К списку заказчиков",
+      "backToCustomer": "К карточке заказчика",
+      "addressHint": "Адрес заполняется целиком или остаётся пустым"
+    },
+    "actions": {
+      "open": "Открыть",
+      "edit": "Редактировать",
+      "archive": "В архив",
+      "restore": "Восстановить"
+    },
+    "dialogs": {
+      "archive": {
+        "title": "Перевести заказчика в архив?",
+        "description": "{name} больше не будет предлагаться при создании проектов. Уже созданные проекты сохранят заказчика, история изменений останется. Вернуть его можно восстановлением.",
+        "confirm": "В архив"
+      },
+      "restore": {
+        "title": "Восстановить заказчика?",
+        "description": "{name} снова появится в списке активных заказчиков и в выборе проекта.",
+        "confirm": "Восстановить"
+      }
+    },
+    "card": {
+      "tabs": {
+        "details": "Сведения",
+        "projects": "Проекты",
+        "history": "История изменений"
+      },
+      "projectsEmpty": "Проектов у этого заказчика пока нет"
+    },
+    "toasts": {
+      "created": "Заказчик создан",
+      "updated": "Изменения сохранены",
+      "archived": "Заказчик перенесён в архив",
+      "restored": "Заказчик восстановлен"
+    },
+    "errors": {
+      "notFound": "Заказчик не найден",
+      "kvkTaken": "Заказчик с таким номером Торговой палаты уже есть"
     },
     "validation": {
       "typeRequired": "Выберите вид заказчика",
@@ -378,6 +475,18 @@
         "socialLinks": "Социальные сети",
         "activities": "Виды деятельности",
         "activityDescription": "Описание деятельности"
+      },
+      "Customer": {
+        "type": "Вид заказчика",
+        "name": "Название / ФИО",
+        "kvkNumber": "Номер Торговой палаты",
+        "vatId": "Идентификационный номер НДС",
+        "contactPerson": "Контактное лицо",
+        "email": "Email",
+        "phone": "Телефон",
+        "address": "Адрес",
+        "comment": "Комментарий",
+        "isActive": "Статус"
       }
     },
     "columns": {
@@ -440,7 +549,11 @@
       "otherSessionsRevoked": "Завершены все сессии пользователя {login}, кроме текущей",
       "exported": "Выгрузка «{title}» ({format}), строк: {count}",
       "companyProfileCreated": "Заполнены сведения о компании",
-      "companyProfileUpdated": "Изменены сведения о компании"
+      "companyProfileUpdated": "Изменены сведения о компании",
+      "customerCreated": "Создан заказчик «{name}»",
+      "customerUpdated": "Изменены данные заказчика «{name}»",
+      "customerArchived": "Заказчик «{name}» перенесён в архив",
+      "customerRestored": "Заказчик «{name}» восстановлен из архива"
     }
   },
   "profile": {
@@ -540,13 +653,7 @@
         "vatId": "Идентификационный номер НДС (btw-id)",
         "vatNumber": "Номер НДС (omzetbelastingnummer)",
         "payrollTaxNumber": "Номер работодателя (loonheffingennummer)",
-        "street": "Улица (straat)",
-        "houseNumber": "Номер дома (huisnummer)",
-        "houseNumberAddition": "Дополнение (toevoeging)",
         "postbus": "Номер абонентского ящика (postbus)",
-        "postcode": "Почтовый индекс (postcode)",
-        "city": "Город (plaats)",
-        "country": "Страна",
         "postalSameAsOffice": "Совпадает с адресом офиса",
         "warehouseName": "Название склада",
         "email": "Email (e-mailadres)",
@@ -620,5 +727,14 @@
         "activityDescriptionTooLong": "Описание деятельности — не длиннее 1000 символов"
       }
     }
+  },
+  "address": {
+    "title": "Адрес",
+    "street": "Улица (straat)",
+    "houseNumber": "Номер дома (huisnummer)",
+    "houseNumberAddition": "Дополнение (toevoeging)",
+    "postcode": "Почтовый индекс (postcode)",
+    "city": "Город (plaats)",
+    "country": "Страна"
   }
 }

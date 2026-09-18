@@ -209,7 +209,7 @@ describe("one's own profile", () => {
 
       await expect(revokeOwnSession(current.id)).resolves.toEqual({
         ok: false,
-        error: "users.errors.invalidRequest",
+        error: "errors.invalidRequest",
       });
       expect(await db.session.findUnique({ where: { id: current.id } })).toMatchObject({
         revokedAt: null,

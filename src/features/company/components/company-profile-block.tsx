@@ -2,6 +2,7 @@ import { HistoryIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { DetailsGroup } from "@/components/details/details-group";
 import { Button } from "@/components/ui/button";
 import { RecordStamps } from "@/features/audit/components/record-stamps";
 import type { SessionUser } from "@/lib/auth/session";
@@ -10,7 +11,6 @@ import { can } from "@/lib/permissions";
 import { companyDetailGroups } from "../details";
 import { companyFormValues } from "../form-values";
 import { getCompanyProfile } from "../queries";
-import { CompanyDetailGroup } from "./company-details";
 import { CompanyProfileDialog } from "./company-profile-dialog";
 
 const COMPANY_HISTORY_PATH = "/settings/company/history";
@@ -56,7 +56,7 @@ export async function CompanyProfileBlock({ viewer }: { viewer: SessionUser }) {
 
       {profile ? (
         companyDetailGroups(profile, t, locale).map((group) => (
-          <CompanyDetailGroup key={group.key} group={group} />
+          <DetailsGroup key={group.key} group={group} />
         ))
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed p-8 text-center">

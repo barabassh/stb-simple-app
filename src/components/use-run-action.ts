@@ -26,7 +26,7 @@ export function useRunAction() {
       if (result.ok) {
         toast.success(t(successMessage));
       } else {
-        toast.error(t(result.error ?? "users.errors.invalidRequest", result.errorValues));
+        toast.error(t(result.error ?? "errors.invalidRequest", result.errorValues));
       }
       onSettled?.();
     });

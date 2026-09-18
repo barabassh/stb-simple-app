@@ -20,12 +20,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRunAction } from "@/components/use-run-action";
 import type { SessionUser } from "@/lib/auth/session";
 import { can, userUpdatePermission } from "@/lib/permissions";
 
 import { toggleStatus } from "../actions";
 import { UserActionDialogs, type UserActionTarget, type UserDialog } from "./user-action-dialogs";
-import { useRunAction } from "./use-run-action";
 
 type UserRowActionsProps = {
   user: UserActionTarget;

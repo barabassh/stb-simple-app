@@ -204,7 +204,7 @@ function useCountryOptions() {
 
 /** Street, house number and addition in one row; postcode and city in the next; then the country. */
 function StreetAddressFields({ prefix }: { prefix: string }) {
-  const t = useTranslations("settings.company.fields");
+  const t = useTranslations("address");
   const countries = useCountryOptions();
 
   return (
@@ -230,7 +230,7 @@ function PlaceFields({
   prefix: string;
   countries: { value: string; label: string }[];
 }) {
-  const t = useTranslations("settings.company.fields");
+  const t = useTranslations("address");
 
   return (
     <>

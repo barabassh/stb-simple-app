@@ -10,7 +10,9 @@ import {
 } from "./fixtures";
 
 const company = messages.settings.company;
-const { details, dialog: dialogTexts, fields } = company;
+const { details, dialog: dialogTexts } = company;
+// The address labels are shared by every section that has an address.
+const fields = { ...company.fields, ...messages.address };
 
 /** The value next to a label in a group of the company details. */
 function detail(page: Page, group: string, label: string): Locator {

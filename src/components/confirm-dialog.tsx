@@ -18,6 +18,8 @@ type ConfirmDialogProps = {
   title: string;
   description: string;
   confirmLabel: string;
+  /** Destructive by default; an action that gives something back, such as a restore, is not. */
+  confirmVariant?: "destructive" | "default";
   pending: boolean;
   onConfirm: () => void;
 };
@@ -28,10 +30,11 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  confirmVariant = "destructive",
   pending,
   onConfirm,
 }: ConfirmDialogProps) {
-  const t = useTranslations("users.actions");
+  const t = useTranslations("common");
 
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
@@ -44,7 +47,7 @@ export function ConfirmDialog({
           <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
             {t("cancel")}
           </Button>
-          <Button variant="destructive" disabled={pending} onClick={onConfirm}>
+          <Button variant={confirmVariant} disabled={pending} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </DialogFooter>

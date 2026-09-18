@@ -100,7 +100,7 @@ export function ResetPasswordDialog({ user, onClose }: ResetPasswordDialogProps)
 
           <DialogFooter>
             <Button type="button" variant="outline" disabled={isSubmitting} onClick={onClose}>
-              {t("users.actions.cancel")}
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {t("users.dialogs.resetPassword.confirm")}

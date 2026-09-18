@@ -1,3 +1,10 @@
+import {
+  detailEmail as email,
+  detailPhone as phone,
+  detailText as text,
+  type DetailGroup,
+  type DetailValue,
+} from "@/components/details/detail-rows";
 import { formatCalendarDate } from "@/lib/format";
 import { formatAddress } from "@/lib/nl/address";
 import { isHttpsUrl, websiteUrl } from "@/lib/nl/identifiers";
@@ -5,31 +12,6 @@ import { isHttpsUrl, websiteUrl } from "@/lib/nl/identifiers";
 import type { CompanyProfileRecord } from "./form-values";
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;
-
-/** Null reads as "not set". An external link opens in a new tab. */
-export type DetailValue =
-  | { type: "text"; text: string }
-  | { type: "link"; text: string; href: string; external: boolean }
-  | null;
-
-export type DetailRow = {
-  key: string;
-  label: string;
-  value: DetailValue;
-  /** A mark next to the value, such as the main activity's. */
-  badge?: string;
-};
-
-export type DetailGroup = { key: string; title: string; rows: DetailRow[] };
-
-const text = (value: string | null | undefined): DetailValue =>
-  value ? { type: "text", text: value } : null;
-
-const email = (value: string | null): DetailValue =>
-  value ? { type: "link", text: value, href: `mailto:${value}`, external: false } : null;
-
-const phone = (value: string | null): DetailValue =>
-  value ? { type: "link", text: value, href: `tel:${value}`, external: false } : null;
 
 // Values that fail the link rules are shown as text rather than turned into a link: a saved value
 // has passed the schema, so this only guards against rows written around it.

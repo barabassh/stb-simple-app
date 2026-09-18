@@ -4,6 +4,7 @@ import { LogOutIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { useRunAction } from "@/components/use-run-action";
 
 import {
   revokeAllUserSessions,
@@ -11,7 +12,6 @@ import {
   revokeOwnSession,
   revokeUserSession,
 } from "../actions";
-import { useRunAction } from "./use-run-action";
 
 export function RevokeSessionButton({ userId, sessionId }: { userId: string; sessionId: string }) {
   const t = useTranslations("users.sessions");

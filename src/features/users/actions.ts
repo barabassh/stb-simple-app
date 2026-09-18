@@ -31,7 +31,7 @@ const USERS_PATH = "/users";
 const PROFILE_PATH = "/profile";
 
 const notFound: ActionFailure = { ok: false, error: "users.errors.notFound" };
-const invalidRequest: ActionFailure = { ok: false, error: "users.errors.invalidRequest" };
+const invalidRequest: ActionFailure = { ok: false, error: "errors.invalidRequest" };
 const lastAdmin: ActionFailure = { ok: false, error: "users.errors.lastAdmin" };
 const cannotDeactivateSelf: ActionFailure = {
   ok: false,

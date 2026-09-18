@@ -2,12 +2,12 @@
 
 import { useTranslations } from "next-intl";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { useRunAction } from "@/components/use-run-action";
 import type { Role } from "@/generated/prisma/enums";
 
 import { toggleStatus } from "../actions";
-import { ConfirmDialog } from "./confirm-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
-import { useRunAction } from "./use-run-action";
 
 export type UserActionTarget = {
   id: string;
