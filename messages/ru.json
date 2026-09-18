@@ -469,7 +469,63 @@
   },
   "projects": {
     "list": {
-      "title": "Проекты"
+      "title": "Проекты",
+      "create": "Создать проект",
+      "searchLabel": "Поиск проектов",
+      "searchPlaceholder": "Номер, название, заказчик или город",
+      "searchPlaceholderActive": "Номер, название или город",
+      "statusFilter": "Статус",
+      "statusFilters": {
+        "inProgress": "В работе",
+        "closed": "Закрытые",
+        "all": "Все статусы"
+      },
+      "customerFilter": "Заказчик",
+      "customerFilterAll": "Все заказчики",
+      "customerSearch": "Поиск заказчика",
+      "customerNothingFound": "Заказчик не найден",
+      "resetFilters": "Сбросить фильтры",
+      "nothingFound": "По заданным фильтрам ничего не найдено",
+      "empty": "Проектов ещё нет",
+      "emptyActive": "Проектов в работе нет",
+      "rowActions": "Действия: проект {number}",
+      "actionsColumn": "Действия"
+    },
+    "columns": {
+      "number": "Номер",
+      "name": "Название",
+      "customer": "Заказчик",
+      "address": "Адрес объекта",
+      "startDate": "Дата начала",
+      "duration": "Длительность, дн.",
+      "status": "Статус",
+      "budgetAmount": "Бюджет без НДС",
+      "vatRate": "Ставка НДС",
+      "budgetWithVat": "Бюджет с НДС",
+      "budgetHours": "Бюджет часов",
+      "updatedAt": "Изменено"
+    },
+    "statuses": {
+      "IN_PROGRESS": "В работе",
+      "CLOSED": "Закрыт"
+    },
+    "vatRates": {
+      "STANDARD_21": "21 %",
+      "REDUCED_9": "9 %",
+      "ZERO": "0 %",
+      "REVERSE_CHARGE": "Verlegd"
+    },
+    "notStarted": "Не начат",
+    "actions": {
+      "open": "Открыть",
+      "edit": "Редактировать"
+    },
+    "export": {
+      "title": "Реестр проектов",
+      "columns": {
+        "budgetAmount": "Бюджет без НДС, €",
+        "budgetWithVat": "Бюджет с НДС, €"
+      }
     },
     "validation": {
       "numberRequired": "Укажите номер проекта",

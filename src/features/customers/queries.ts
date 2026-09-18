@@ -130,3 +130,13 @@ export async function listCustomerOptions(
 
   return customers;
 }
+
+/** Every customer, archived ones with their mark, for the customer filter of the projects. */
+export async function listCustomerFilterOptions(actor: SessionUser): Promise<CustomerOption[]> {
+  requirePermission(actor, "customers.read");
+
+  return db.customer.findMany({
+    select: { id: true, name: true, isActive: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+  });
+}

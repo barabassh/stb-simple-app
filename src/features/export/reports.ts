@@ -1,6 +1,7 @@
 import { auditExport } from "@/features/audit/export";
 import { contractorsExport } from "@/features/contractors/export";
 import { customersExport } from "@/features/customers/export";
+import { projectsExport } from "@/features/projects/export";
 import { usersExport } from "@/features/users/export";
 import type { ExportReport } from "@/lib/export";
 
@@ -10,6 +11,7 @@ const EXPORT_REPORTS: readonly ExportReport[] = [
   auditExport,
   customersExport,
   contractorsExport,
+  projectsExport,
 ];
 
 export function findExportReport(name: string | null | undefined): ExportReport | null {

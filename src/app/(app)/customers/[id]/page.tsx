@@ -5,6 +5,10 @@ import { ReferenceCard } from "@/components/reference-book/card";
 import { changeCustomerStatus } from "@/features/customers/actions";
 import { CustomerDetails } from "@/features/customers/components/customer-details";
 import { getCustomer } from "@/features/customers/queries";
+import { projectAccess } from "@/features/projects/columns";
+import { ProjectsTable } from "@/features/projects/components/projects-table";
+import { parseProjectsListParams } from "@/features/projects/list-params";
+import { listProjects } from "@/features/projects/queries";
 import { requirePagePermission } from "@/lib/auth/current-user";
 
 type CustomerPageProps = {
@@ -19,7 +23,18 @@ export default async function CustomerPage({ params, searchParams }: CustomerPag
   const customer = await getCustomer(viewer, id);
   if (!customer) notFound();
 
-  const t = await getTranslations("customers");
+  // The registry's own query, narrowed to the customer: every status, paged and sorted in the URL
+  // like any table. The tabs do not share parameters, since switching a tab drops them.
+  const projectsParams = {
+    ...parseProjectsListParams(resolvedSearchParams, projectAccess(viewer)),
+    query: "",
+    status: "all",
+    customerId: customer.id,
+  } as const;
+  const [projects, t] = await Promise.all([
+    listProjects(viewer, projectsParams),
+    getTranslations("customers"),
+  ]);
 
   return (
     <ReferenceCard
@@ -35,11 +50,14 @@ export default async function CustomerPage({ params, searchParams }: CustomerPag
         {
           value: "projects",
           label: t("card.tabs.projects"),
-          // The list of projects arrives with the registry of projects (step 21).
           content: (
-            <p className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-              {t("card.projectsEmpty")}
-            </p>
+            <ProjectsTable
+              rows={projects.rows}
+              rowCount={projects.rowCount}
+              state={projectsParams.table}
+              columns={["number", "name", "startDate", "status"]}
+              emptyState={t("card.projectsEmpty")}
+            />
           ),
         },
       ]}

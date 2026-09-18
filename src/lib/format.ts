@@ -147,3 +147,27 @@ export function formatNumber(
     })
     .join("");
 }
+
+/**
+ * An exact decimal string, as a `Decimal` column is read ("12500.50"), in the number format of
+ * formatNumber. The digits are grouped as text: a sum never passes through a floating point number.
+ */
+export function formatDecimal(
+  value: string | null | undefined,
+  { minimumFractionDigits = 0 }: Pick<NumberFormatOptions, "minimumFractionDigits"> = {},
+): string {
+  if (value == null) return "";
+
+  const [signedWhole, fraction = ""] = value.split(".");
+  const sign = signedWhole.startsWith("-") ? "-" : "";
+  const whole = signedWhole.slice(sign.length).replace(/\B(?=(\d{3})+$)/g, NBSP);
+  const digits = fraction.replace(/0+$/, "").padEnd(minimumFractionDigits, "0");
+
+  return `${sign}${whole}${digits ? `,${digits}` : ""}`;
+}
+
+/** A sum in euros: `12 500,00 €` (docs/ТЗ.md, 6.6). */
+export function formatMoney(value: string | null | undefined): string {
+  if (value == null) return "";
+  return `${formatDecimal(value, { minimumFractionDigits: 2 })}${NBSP}€`;
+}

@@ -6,6 +6,8 @@ import {
   formatCalendarDate,
   formatDate,
   formatDateTime,
+  formatDecimal,
+  formatMoney,
   formatNumber,
   formatShortName,
 } from "@/lib/format";
@@ -104,5 +106,24 @@ describe("formatNumber", () => {
 
   it("respects fraction digit options", () => {
     expect(formatNumber(1000, { minimumFractionDigits: 2 })).toBe("1 000,00");
+  });
+});
+
+describe("formatDecimal and formatMoney", () => {
+  const NBSP = "\u00A0";
+
+  it("groups the digits of an exact decimal string without rounding it", () => {
+    expect(formatDecimal("999999999999.99")).toBe(`999${NBSP}999${NBSP}999${NBSP}999,99`);
+    expect(formatDecimal("1250.50")).toBe(`1${NBSP}250,5`);
+    expect(formatDecimal("40.00")).toBe("40");
+    expect(formatDecimal("-1234.5")).toBe(`-1${NBSP}234,5`);
+    expect(formatDecimal(null)).toBe("");
+  });
+
+  it("writes a sum in euros with cents", () => {
+    expect(formatMoney("12500.50")).toBe(`12${NBSP}500,50${NBSP}€`);
+    expect(formatMoney("15125.61")).toBe(`15${NBSP}125,61${NBSP}€`);
+    expect(formatMoney("0.00")).toBe(`0,00${NBSP}€`);
+    expect(formatMoney(undefined)).toBe("");
   });
 });
