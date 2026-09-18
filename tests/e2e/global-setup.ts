@@ -16,6 +16,15 @@ const PAGES = [
   "/users/new",
   "/users/{id}",
   "/users/{id}/edit",
+  "/customers",
+  "/customers/new",
+  "/customers/{customer}",
+  "/contractors/{contractor}",
+  "/projects",
+  "/projects/new",
+  "/projects/{project}",
+  "/projects/{project}/edit",
+  "/projects/{closed}/edit",
   "/profile",
   "/settings",
   "/settings/company/history",
@@ -28,9 +37,11 @@ function cuid(): string {
   return `c${randomBytes(12).toString("hex")}`;
 }
 
-async function insertWarmUpSession(databaseUrl: string) {
+/** A user with a session, and a record of each kind for the pages of a record to open with. */
+async function insertWarmUpData(databaseUrl: string) {
   const userId = cuid();
   const token = randomBytes(32).toString("base64url");
+  const ids = { id: userId, customer: cuid(), contractor: cuid(), project: cuid(), closed: cuid() };
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
@@ -44,14 +55,34 @@ async function insertWarmUpSession(databaseUrl: string) {
        VALUES ($1, $2, $3, now() + interval '1 hour')`,
       [cuid(), userId, createHash("sha256").update(token).digest("hex")],
     );
+    await client.query(
+      `INSERT INTO "Customer" (id, name, "updatedAt") VALUES ($1, 'Warm-up', now())`,
+      [ids.customer],
+    );
+    await client.query(
+      `INSERT INTO "Contractor" (id, name, "updatedAt") VALUES ($1, 'Warm-up', now())`,
+      [ids.contractor],
+    );
+    for (const [id, number, status] of [
+      [ids.project, "WARMUP-1", "IN_PROGRESS"],
+      [ids.closed, "WARMUP-2", "CLOSED"],
+    ]) {
+      await client.query(
+        `INSERT INTO "Project" (id, number, name, "customerId", street, "houseNumber", postcode,
+           city, "startDate", status, "closedAt", "updatedAt")
+         VALUES ($1, $2, 'Warm-up', $3, 'Damrak', 1, '1012 LG', 'Amsterdam', '2026-09-01',
+           $4::text::"ProjectStatus", CASE WHEN $4::text = 'CLOSED' THEN now() END, now())`,
+        [id, number, ids.customer, status],
+      );
+    }
   } finally {
     await client.end();
   }
-  return { userId, token };
+  return { ids, token };
 }
 
 async function openPages(baseURL: string, databaseUrl: string): Promise<void> {
-  const { userId, token } = await insertWarmUpSession(databaseUrl);
+  const { ids, token } = await insertWarmUpData(databaseUrl);
   const browser = await chromium.launch();
   try {
     const visitor = await browser.newPage({ baseURL });
@@ -63,7 +94,8 @@ async function openPages(baseURL: string, databaseUrl: string): Promise<void> {
     ]);
     const page = await context.newPage();
     for (const path of PAGES) {
-      await page.goto(path.replace("{id}", userId), { waitUntil: "networkidle", timeout: 180_000 });
+      const url = path.replace(/\{(\w+)\}/, (_, name: keyof typeof ids) => ids[name]);
+      await page.goto(url, { waitUntil: "networkidle", timeout: 180_000 });
     }
   } finally {
     await browser.close();
