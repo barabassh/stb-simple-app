@@ -237,6 +237,22 @@ export async function suggestProjectNumber(actor: SessionUser): Promise<string> 
   );
 }
 
+export type ReportProjectOption = { id: string; number: string; name: string; city: string };
+
+/**
+ * The projects a work report may be filed for: those in progress (docs/ТЗ.md, 7.5), searched by
+ * number, name and city. The report action checks the choice again, in its transaction.
+ */
+export async function listReportProjectOptions(actor: SessionUser): Promise<ReportProjectOption[]> {
+  requirePermission(actor, "projects.readActive");
+
+  return db.project.findMany({
+    where: { status: "IN_PROGRESS", deletedAt: null },
+    select: { id: true, number: true, name: true, city: true },
+    orderBy: [{ number: "desc" }, { id: "asc" }],
+  });
+}
+
 export type ProjectForEdit = ProjectFormRecord & {
   id: string;
   status: ProjectStatus;

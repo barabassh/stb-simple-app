@@ -635,9 +635,70 @@
       "create": "Новый отчёт",
       "empty": "Отчётов ещё нет"
     },
+    "statuses": {
+      "UNAPPROVED": "Не утверждён",
+      "APPROVED": "Утверждён"
+    },
+    "fields": {
+      "worker": "Работник",
+      "organization": "Организация",
+      "workDate": "Дата",
+      "project": "Объект",
+      "workDescription": "Выполненные работы",
+      "startTime": "Начало работ",
+      "endTime": "Окончание работ",
+      "lunchMinutes": "Обед, мин",
+      "worked": "Отработано, ч",
+      "mileageKm": "Пробег, км"
+    },
+    "form": {
+      "createTitle": "Новый отчёт",
+      "editTitle": "Редактирование отчёта",
+      "backToList": "К списку отчётов",
+      "reportName": "Отчёт от {date}, {worker}, проект {number}",
+      "ourCompany": "Наша компания",
+      "workerOption": "{fullName} ({nickname}) · {organization}",
+      "workerPlaceholder": "Выберите работника",
+      "workerSearch": "Поиск по ФИО и никнейму",
+      "workerNothingFound": "Работник не найден",
+      "workerFixedHint": "Работник не меняется: ошибочный отчёт удаляют и вносят заново",
+      "projectOption": "{number} · {name} · {city}",
+      "projectPlaceholder": "Выберите объект",
+      "projectSearch": "Поиск по номеру, названию и городу",
+      "projectNothingFound": "Проект «В работе» не найден",
+      "workedHint": "Окончание − начало − обед",
+      "approvedHint": "Отчёт утверждён — правка утверждение не снимает",
+      "approvedMessage": "Отчёт уже утверждён — изменения вносит менеджер",
+      "closedMessage": "Проект закрыт — изменения вносить нельзя"
+    },
+    "actions": {
+      "delete": "Удалить",
+      "deleteTitle": "Удалить отчёт от {date} по проекту {number}?",
+      "deleteDescription": "Отчёт исчезнет из реестров и итогов. Записи журнала останутся."
+    },
+    "toasts": {
+      "created": "Отчёт внесён",
+      "updated": "Изменения сохранены",
+      "deleted": "Отчёт удалён"
+    },
+    "audit": {
+      "project": "{number} «{name}»",
+      "minutes": "{count} мин",
+      "kilometres": "{count} км"
+    },
     "errors": {
       "noOrganization": "Учётная запись не привязана к организации — обратитесь к администратору",
-      "organizationArchived": "Организация в архиве — внесение отчётов закрыто"
+      "organizationArchived": "Организация в архиве — внесение отчётов закрыто",
+      "notFound": "Отчёт не найден",
+      "approved": "Отчёт уже утверждён — изменения вносит менеджер",
+      "approvedNotDeleted": "Утверждённый отчёт не удаляется — сначала снимите утверждение",
+      "changed": "Отчёт изменён в другом окне — обновите страницу",
+      "workerInvalid": "Работником может быть только активный сотрудник или подрядчик",
+      "workerNoOrganization": "Учётная запись работника не привязана к организации",
+      "workerOrganizationArchived": "Организация работника в архиве — внесение отчётов закрыто",
+      "beforeProjectStart": "Дата не может быть раньше начала проекта — {date}",
+      "overlap": "Пересекается с отчётом {start}–{end} по проекту {number}",
+      "overlapGone": "Отчёт, с которым пересекалось время, уже удалён — сохраните ещё раз"
     },
     "validation": {
       "workerRequired": "Выберите работника",
@@ -773,6 +834,19 @@
         "budgetHours": "Бюджет рабочих часов",
         "status": "Статус",
         "budget": "Бюджет"
+      },
+      "WorkReport": {
+        "user": "Работник",
+        "contractor": "Организация",
+        "project": "Проект",
+        "workDate": "Дата",
+        "workDescription": "Выполненные работы",
+        "startMinute": "Начало работ",
+        "endMinute": "Окончание работ",
+        "lunchMinutes": "Обед",
+        "mileageKm": "Пробег",
+        "status": "Статус",
+        "unapprovalReason": "Причина снятия утверждения"
       }
     },
     "columns": {
@@ -850,7 +924,10 @@
       "projectUpdated": "Изменён проект {number} «{name}»",
       "projectClosed": "Проект {number} закрыт",
       "projectReopened": "Проект {number} возвращён в работу",
-      "projectDeleted": "Проект {number} удалён"
+      "projectDeleted": "Проект {number} удалён",
+      "reportCreated": "Внесён отчёт {worker} за {date}, проект {number}",
+      "reportUpdated": "Изменён отчёт {worker} за {date}, проект {number}",
+      "reportDeleted": "Отчёт {worker} за {date}, проект {number} удалён"
     }
   },
   "profile": {

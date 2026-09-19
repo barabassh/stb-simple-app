@@ -1,5 +1,5 @@
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
-import { PermissionDeniedError, requirePermission, type Permission } from "@/lib/permissions";
+import { canAny, PermissionDeniedError, type Permission } from "@/lib/permissions";
 
 import { requireActionSession } from "./current-user";
 import type { SessionUser } from "./session";
@@ -14,17 +14,18 @@ export type ActionActor = SessionUser & { sessionId: string };
  * arguments are looked at (docs/ПРАВА-ДОСТУПА.md, 1). A PermissionDeniedError thrown later in
  * the body, for a permission that depends on the submitted data, is refused the same way.
  * A refusal is a result rather than an exception: the role may have changed since the page
- * was rendered, and that should not end on the error page.
+ * was rendered, and that should not end on the error page. Given several permissions, any one of
+ * them lets the action run, e.g. reports of one's own or of any worker; the body tells them apart.
  */
 export function authorizedAction<TArgs extends unknown[], TResult extends ActionResult>(
-  permission: Permission,
+  permission: Permission | readonly Permission[],
   action: (actor: ActionActor, ...args: TArgs) => Promise<TResult>,
 ): (...args: TArgs) => Promise<TResult | ActionFailure> {
   return async (...args) => {
     const { user, session } = await requireActionSession();
     const actor = { ...user, sessionId: session.id };
+    if (!canAny(actor, [permission].flat())) return forbidden;
     try {
-      requirePermission(actor, permission);
       return await action(actor, ...args);
     } catch (error) {
       if (error instanceof PermissionDeniedError) return forbidden;

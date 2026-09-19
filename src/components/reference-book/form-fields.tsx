@@ -44,12 +44,21 @@ type TextFieldProps = {
   label: string;
   description?: string;
   className?: string;
+  /** Makes the error a link, e.g. to the record that stands in the way. */
+  errorHref?: string;
 } & Pick<
   React.ComponentProps<"input">,
-  "type" | "inputMode" | "autoCapitalize" | "spellCheck" | "autoFocus"
+  "type" | "inputMode" | "autoCapitalize" | "spellCheck" | "autoFocus" | "max"
 >;
 
-export function TextField({ name, label, description, className, ...input }: TextFieldProps) {
+export function TextField({
+  name,
+  label,
+  description,
+  className,
+  errorHref,
+  ...input
+}: TextFieldProps) {
   const { register } = useFormContext();
   const error = useFieldError(name);
 
@@ -58,7 +67,15 @@ export function TextField({ name, label, description, className, ...input }: Tex
       <FieldLabel htmlFor={name}>{label}</FieldLabel>
       <Input id={name} autoComplete="off" aria-invalid={!!error} {...input} {...register(name)} />
       {description && <FieldDescription>{description}</FieldDescription>}
-      <FieldError>{error}</FieldError>
+      <FieldError>
+        {error && errorHref ? (
+          <Link href={errorHref} className="underline underline-offset-4">
+            {error}
+          </Link>
+        ) : (
+          error
+        )}
+      </FieldError>
     </Field>
   );
 }
