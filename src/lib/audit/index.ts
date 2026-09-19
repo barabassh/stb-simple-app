@@ -1,4 +1,5 @@
 import type { AuditAction, Prisma } from "@/generated/prisma/client";
+import type { Permission } from "@/lib/permissions";
 
 // Rules for what is written and how: docs/СХЕМА-БД.md, section 4.
 
@@ -29,6 +30,19 @@ export const AUDIT_ENTITIES = [
 export type AuditEntity = (typeof AUDIT_ENTITIES)[number];
 
 export type AuditValue = string | number | boolean | null;
+
+/** How the history and the journal show one field of an entity (docs/АРХИТЕКТУРА.md, 3.12). */
+export type AuditFieldRule =
+  /**
+   * Only a reader with the right sees the values; the others see that `withheldAs` changed,
+   * once for all the fields that share it.
+   */
+  | { readPermission: Permission; withheldAs: string }
+  /** Looks like money, e.g. a Decimal, but everyone who reads the history may see it. */
+  | { readPermission: null };
+
+/** Fields without a rule are shown to everyone who reads the history. */
+export type AuditFieldRules = Readonly<Record<string, AuditFieldRule>>;
 
 export type AuditChange = { field: string; before: AuditValue; after: AuditValue };
 

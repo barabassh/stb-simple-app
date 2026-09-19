@@ -7,6 +7,7 @@ import { displayDayRange } from "@/lib/format";
 import { can, requirePermission, type Permission } from "@/lib/permissions";
 
 import type { AuditListParams, AuditSortColumn } from "./list-params";
+import { auditFieldRules } from "./fields";
 import { auditExportPeriodSchema } from "./schemas";
 
 // Only reads: the log has no path in the application that changes or deletes an entry.
@@ -27,35 +28,34 @@ const listItemSelect = {
 
 type AuditLogRecord = Prisma.AuditLogGetPayload<{ select: typeof listItemSelect }>;
 
-/**
- * Fields of a project that only a reader with projects.budget.read sees the values of
- * (docs/СХЕМА-БД.md, 9.4). They are written to the log like any other field, and the reading
- * replaces them, so that the rule holds for entries written before the right was taken away.
- */
-export const PROJECT_BUDGET_FIELDS = ["budgetAmount", "vatRate", "budgetHours"] as const;
-
-const projectBudgetFields: ReadonlySet<string> = new Set(PROJECT_BUDGET_FIELDS);
-
-/** The field that stands in for the withheld budget fields: "Бюджет: изменён". */
-export const WITHHELD_BUDGET_FIELD = "budget";
-
 /** A change whose values the reader may not see: only the fact of the change is shown. */
 export type AuditChangeItem = AuditChange & { withheld?: true };
 
-type ReaderRights = { requestInfo: boolean; budget: boolean };
+/**
+ * Hides the values of the fields marked with a right the reader lacks (./fields.ts). The fields
+ * are written to the log like any other, and the reading hides them, so that the rule holds for
+ * entries written before the right was taken away.
+ */
+function visibleChanges(entity: string, value: unknown, reader: SessionUser): AuditChangeItem[] {
+  const rules = auditFieldRules(entity);
+  const shown: AuditChangeItem[] = [];
+  const withheld = new Set<string>();
 
-function readerRights(actor: SessionUser): ReaderRights {
-  return { requestInfo: can(actor, "audit.read"), budget: can(actor, "projects.budget.read") };
-}
+  for (const change of readAuditChanges(value)) {
+    const rule = rules[change.field];
+    if (rule?.readPermission && !can(reader, rule.readPermission)) withheld.add(rule.withheldAs);
+    else shown.push(change);
+  }
 
-function visibleChanges(entity: string, value: unknown, budget: boolean): AuditChangeItem[] {
-  const changes = readAuditChanges(value);
-  if (budget || entity !== "Project") return changes;
-
-  const shown = changes.filter(({ field }) => !projectBudgetFields.has(field));
-  return shown.length === changes.length
-    ? shown
-    : [...shown, { field: WITHHELD_BUDGET_FIELD, before: null, after: null, withheld: true }];
+  return [
+    ...shown,
+    ...[...withheld].map((field) => ({
+      field,
+      before: null,
+      after: null,
+      withheld: true as const,
+    })),
+  ];
 }
 
 export type AuditLogItem = ReturnType<typeof toListItem>;
@@ -74,14 +74,15 @@ const HISTORY_PERMISSION: Record<AuditEntity, Permission> = {
 
 function toListItem(
   { actor, changes, ip, userAgent, ...entry }: AuditLogRecord,
-  rights: ReaderRights,
+  reader: SessionUser,
 ) {
+  const requestInfo = can(reader, "audit.read");
   return {
     ...entry,
     actorName: actor?.fullName ?? null,
-    changes: visibleChanges(entry.entity, changes, rights.budget),
-    ip: rights.requestInfo ? ip : null,
-    userAgent: rights.requestInfo ? userAgent : null,
+    changes: visibleChanges(entry.entity, changes, reader),
+    ip: requestInfo ? ip : null,
+    userAgent: requestInfo ? userAgent : null,
   };
 }
 
@@ -96,7 +97,7 @@ function auditLogsOrderBy(
 async function findAuditLogs(
   where: Prisma.AuditLogWhereInput,
   table: TableState<AuditSortColumn>,
-  rights: ReaderRights,
+  reader: SessionUser,
 ): Promise<{ rows: AuditLogItem[]; rowCount: number }> {
   const [records, rowCount] = await Promise.all([
     db.auditLog.findMany({
@@ -109,7 +110,7 @@ async function findAuditLogs(
     db.auditLog.count({ where }),
   ]);
 
-  return { rows: records.map((record) => toListItem(record, rights)), rowCount };
+  return { rows: records.map((record) => toListItem(record, reader)), rowCount };
 }
 
 function auditLogsWhere({
@@ -147,7 +148,7 @@ function auditLogsWhere({
 export async function listAuditLogs(actor: SessionUser, params: AuditListParams) {
   requirePermission(actor, "audit.read");
 
-  return findAuditLogs(auditLogsWhere(params), params.table, readerRights(actor));
+  return findAuditLogs(auditLogsWhere(params), params.table, actor);
 }
 
 /** Every entry the journal shows with these parameters, in its order, on all of its pages. */
@@ -167,14 +168,13 @@ export async function listAuditLogsForExport(
     select: listItemSelect,
     orderBy: auditLogsOrderBy(params.table),
   });
-  const rights = readerRights(actor);
-  return records.map((record) => toListItem(record, rights));
+  return records.map((record) => toListItem(record, actor));
 }
 
 /**
  * The history of one record, shown on its card. IP addresses and browsers are left out unless
  * the reader may open the journal: a manager reads a user's history but not other people's
- * sessions (docs/ПРАВА-ДОСТУПА.md, 3.7). The budget of a project is withheld the same way.
+ * sessions (docs/ПРАВА-ДОСТУПА.md, 3.7). Fields with a right of their own are withheld the same way.
  */
 export async function listEntityAuditLogs(
   actor: SessionUser,
@@ -184,5 +184,5 @@ export async function listEntityAuditLogs(
 ) {
   requirePermission(actor, HISTORY_PERMISSION[entity]);
 
-  return findAuditLogs({ entity, entityId }, table, readerRights(actor));
+  return findAuditLogs({ entity, entityId }, table, actor);
 }

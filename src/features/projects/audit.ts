@@ -1,10 +1,23 @@
-import type { AuditValue } from "@/lib/audit";
+import type { AuditFieldRules, AuditValue } from "@/lib/audit";
 import { formatCalendarDate, formatDecimal, formatMoney } from "@/lib/format";
 import { formatAddress } from "@/lib/nl/address";
 
 import type { ProjectFormValues } from "./schemas";
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+/**
+ * The budget is written to the log like any other field; a reader without projects.budget.read
+ * sees only that it changed (docs/АРХИТЕКТУРА.md, 3.12), also in entries written before the right
+ * was taken away.
+ */
+const budget = { readPermission: "projects.budget.read", withheldAs: "budget" } as const;
+
+export const PROJECT_AUDIT_FIELDS: AuditFieldRules = {
+  budgetAmount: budget,
+  vatRate: budget,
+  budgetHours: budget,
+};
 
 const orNull = (value: string) => (value === "" ? null : value);
 

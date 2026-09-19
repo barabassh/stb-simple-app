@@ -9,7 +9,7 @@ import { FieldGroup } from "@/components/ui/field";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import type { ActionResult } from "@/lib/action-result";
 
-import { FormFooter } from "./form-fields";
+import { FormFooter, SERVER_ERROR } from "./form-fields";
 import type { ReferenceSection } from "./list-params";
 
 /** The project form works the same way, on its own routes and messages. */
@@ -45,7 +45,12 @@ export function ReferenceForm<TInput extends FieldValues, TOutput>({
     const result = await save(values);
     if (!result.ok) {
       for (const [field, messages] of Object.entries(result.fieldErrors ?? {})) {
-        if (messages?.[0]) form.setError(field as Path<TInput>, { message: messages[0] });
+        if (messages?.[0]) {
+          form.setError(field as Path<TInput>, {
+            type: SERVER_ERROR,
+            message: t(messages[0], result.errorValues),
+          });
+        }
       }
       if (result.error) {
         form.setError("root.server", { message: t(result.error, result.errorValues) });

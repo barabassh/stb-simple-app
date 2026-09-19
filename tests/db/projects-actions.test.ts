@@ -177,9 +177,10 @@ describe("createProject", () => {
     const customerId = await createCustomer("Bakker");
     const first = await created(projectInput(customerId, { number: "A-1" }));
 
-    await expect(createProject(projectInput(customerId, { number: "a-1" }))).resolves.toEqual(
-      numberTaken,
-    );
+    // Another name: a project in progress with the same one is refused too (docs/ТЗ.md, 6.6).
+    await expect(
+      createProject(projectInput(customerId, { number: "a-1", name: "Nieuwbouw" })),
+    ).resolves.toEqual(numberTaken);
 
     await db.project.update({ where: { id: first }, data: { deletedAt: new Date() } });
     await expect(createProject(projectInput(customerId, { number: "a-1" }))).resolves.toMatchObject(

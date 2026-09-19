@@ -24,12 +24,19 @@ import { RecordPicker, type RecordOption } from "./record-picker";
 // The fields of the customer and contractor forms (docs/ТЗ.md, 6.4–6.5), read from the form
 // context: the forms differ in a few fields, not in how a field looks or reports its error.
 
-/** The message key of the field's error, translated. */
+/**
+ * The type of a field error set from a server action's answer: its message is already translated,
+ * with the values the action returned, e.g. the date in "первый — 02.09.2026".
+ */
+export const SERVER_ERROR = "server";
+
+/** The field's error, translated unless the form translated it already. */
 function useFieldError(name: string): string | undefined {
   const t = useTranslations();
   const { errors } = useFormState({ name });
-  const message: unknown = get(errors, name)?.message;
-  return typeof message === "string" ? t(message) : undefined;
+  const error: { type?: unknown; message?: unknown } | undefined = get(errors, name);
+  if (typeof error?.message !== "string") return undefined;
+  return error.type === SERVER_ERROR ? error.message : t(error.message);
 }
 
 type TextFieldProps = {
