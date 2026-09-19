@@ -4,8 +4,11 @@ import { formatDateTime, formatShortName } from "@/lib/format";
 
 type Stamp = {
   at: Date;
-  /** Null when the record was made outside the application, e.g. by the seed. */
-  by: { fullName: string; login: string } | null;
+  /**
+   * Null when the record was made outside the application, e.g. by the seed. Without the login,
+   * shown to readers who do not manage accounts, the author is named only.
+   */
+  by: { fullName: string; login?: string } | null;
 };
 
 /** "Создано: дата, автор · Изменено: дата, автор" under the title of a card (docs/ТЗ.md, 4.10). */
@@ -16,7 +19,7 @@ export function RecordStamps({ created, updated }: { created: Stamp; updated: St
     const date = formatDateTime(stamp.at);
     if (!stamp.by) return t(withoutAuthor, { date });
     return (
-      <span title={`${stamp.by.fullName} (${stamp.by.login})`}>
+      <span title={stamp.by.login && `${stamp.by.fullName} (${stamp.by.login})`}>
         {t(withAuthor, {
           date,
           // On a phone the line breaks before the author rather than between the initials.

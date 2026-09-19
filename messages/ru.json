@@ -633,7 +633,41 @@
     "list": {
       "title": "Отчёты",
       "create": "Новый отчёт",
-      "empty": "Отчётов ещё нет"
+      "empty": "Отчётов ещё нет",
+      "searchLabel": "Поиск отчётов",
+      "searchPlaceholder": "Работы, проект или работник",
+      "searchPlaceholderOwn": "Работы или проект",
+      "statusFilter": "Статус",
+      "statusFilters": {
+        "unapproved": "Не утверждённые",
+        "approved": "Утверждённые",
+        "all": "Все статусы"
+      },
+      "projectFilter": "Проект",
+      "projectFilterAll": "Все проекты",
+      "projectSearch": "Поиск по номеру и названию",
+      "projectNothingFound": "Проект не найден",
+      "organizationFilter": "Организация",
+      "organizationFilterAll": "Все организации",
+      "organizationSearch": "Поиск организации",
+      "organizationNothingFound": "Организация не найдена",
+      "workerFilter": "Работник",
+      "workerFilterAll": "Все работники",
+      "workerSearch": "Поиск по ФИО и никнейму",
+      "workerNothingFound": "Работник не найден",
+      "from": "С даты",
+      "to": "По дату",
+      "resetFilters": "Сбросить фильтры",
+      "nothingFound": "По заданным фильтрам ничего не найдено",
+      "totals": "Отчётов: {count} · часов: {hours} · км: {km}",
+      "totalsApproved": "из них утверждено: {hours} ч",
+      "rowActions": "Действия: отчёт от {date}",
+      "actionsColumn": "Действия",
+      "selectRow": "Выбрать отчёт от {date}",
+      "selectPage": "Выбрать все неутверждённые отчёты на странице",
+      "selectColumn": "Выбор",
+      "approveSelected": "Утвердить выбранные",
+      "approveSelectedCount": "Утвердить выбранные: {count}"
     },
     "statuses": {
       "UNAPPROVED": "Не утверждён",
@@ -672,14 +706,25 @@
       "closedMessage": "Проект закрыт — изменения вносить нельзя"
     },
     "actions": {
+      "open": "Открыть",
+      "edit": "Редактировать",
       "delete": "Удалить",
       "deleteTitle": "Удалить отчёт от {date} по проекту {number}?",
-      "deleteDescription": "Отчёт исчезнет из реестров и итогов. Записи журнала останутся."
+      "deleteDescription": "Отчёт исчезнет из реестров и итогов. Записи журнала останутся.",
+      "approve": "Утвердить",
+      "unapprove": "Снять утверждение",
+      "unapproveTitle": "Снять утверждение с отчёта от {date} по проекту {number}?",
+      "unapproveDescription": "Отчёт станет «Не утверждён», и работник снова сможет его править и удалить. Причину увидит работник.",
+      "reason": "Причина"
     },
     "toasts": {
       "created": "Отчёт внесён",
       "updated": "Изменения сохранены",
-      "deleted": "Отчёт удалён"
+      "deleted": "Отчёт удалён",
+      "approved": "Отчёт утверждён",
+      "unapproved": "Утверждение снято",
+      "bulkApproved": "Утверждено: {approved}",
+      "bulkApprovedSkipped": "Утверждено: {approved}. Пропущено: {skipped} — уже утверждены или проект закрыт"
     },
     "audit": {
       "project": "{number} «{name}»",
@@ -698,7 +743,8 @@
       "workerOrganizationArchived": "Организация работника в архиве — внесение отчётов закрыто",
       "beforeProjectStart": "Дата не может быть раньше начала проекта — {date}",
       "overlap": "Пересекается с отчётом {start}–{end} по проекту {number}",
-      "overlapGone": "Отчёт, с которым пересекалось время, уже удалён — сохраните ещё раз"
+      "overlapGone": "Отчёт, с которым пересекалось время, уже удалён — сохраните ещё раз",
+      "statusChanged": "Статус отчёта уже изменён"
     },
     "validation": {
       "workerRequired": "Выберите работника",
@@ -715,6 +761,34 @@
       "mileageInvalid": "Пробег — целое число километров от 0 до 2000",
       "reasonLength": "Причина — от 3 до 500 символов",
       "unexpectedField": "Форма содержит лишнее поле — обновите страницу"
+    },
+    "columns": {
+      "workDate": "Дата",
+      "worker": "Работник",
+      "organization": "Организация",
+      "project": "Проект",
+      "workDescription": "Выполненные работы",
+      "time": "Время",
+      "lunchMinutes": "Обед, мин",
+      "hours": "Часы",
+      "mileageKm": "Пробег, км",
+      "status": "Статус",
+      "updatedAt": "Изменено"
+    },
+    "card": {
+      "title": "Отчёт от {date}",
+      "subtitle": "{worker} · проект {number} «{name}»",
+      "approved": "Утверждён: {date}",
+      "approvedBy": "Утверждён: {date}, {author}",
+      "unapproved": "Утверждение снято: {date} — {reason}",
+      "unapprovedBy": "Утверждение снято: {date}, {author} — {reason}",
+      "unapprovedMark": "Утверждение снято",
+      "workerValue": "{fullName} ({nickname})",
+      "tabs": {
+        "details": "Сведения",
+        "history": "История изменений"
+      },
+      "projectValue": "{number} «{name}»"
     }
   },
   "auth": {
@@ -927,7 +1001,9 @@
       "projectDeleted": "Проект {number} удалён",
       "reportCreated": "Внесён отчёт {worker} за {date}, проект {number}",
       "reportUpdated": "Изменён отчёт {worker} за {date}, проект {number}",
-      "reportDeleted": "Отчёт {worker} за {date}, проект {number} удалён"
+      "reportDeleted": "Отчёт {worker} за {date}, проект {number} удалён",
+      "reportApproved": "Отчёт {worker} за {date}, проект {number} утверждён",
+      "reportUnapproved": "Утверждение отчёта {worker} за {date}, проект {number} снято"
     }
   },
   "profile": {

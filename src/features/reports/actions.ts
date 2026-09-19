@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
+import { PAGE_SIZE_OPTIONS } from "@/components/data-table/search-params";
 import { Prisma } from "@/generated/prisma/client";
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
 import { diffEntity, logAudit } from "@/lib/audit";
@@ -14,8 +15,13 @@ import { can, PermissionDeniedError } from "@/lib/permissions";
 import { getClientInfo } from "@/lib/request-info";
 
 import { reportAuditSnapshot, reportSummaryValues, type ReportAuditRecord } from "./audit";
-import { REPORTS_WRITE, reportAccessWhere } from "./queries";
-import { ownReportSchema, workerReportSchema, type OwnReportValues } from "./schemas";
+import { REPORTS_WRITE, reportsWhere } from "./queries";
+import {
+  ownReportSchema,
+  unapproveReportSchema,
+  workerReportSchema,
+  type OwnReportValues,
+} from "./schemas";
 import { formatTime } from "./time";
 
 // Every write into a project runs in one transaction, in this order (docs/АРХИТЕКТУРА.md, 3.10):
@@ -282,7 +288,7 @@ async function refusedWrite(
   whenApproved: ActionFailure,
 ): Promise<ActionFailure> {
   const report = await tx.workReport.findFirst({
-    where: { id, ...reportAccessWhere(actor) },
+    where: { id, ...reportsWhere(actor) },
     select: { status: true },
   });
   if (!report) return notFound;
@@ -397,7 +403,7 @@ export const updateReport = authorizedAction(
 
     return writing(values, { reportId: id }, async (tx): Promise<ActionResult> => {
       const stored = await tx.workReport.findFirst({
-        where: { id, ...reportAccessWhere(actor) },
+        where: { id, ...reportsWhere(actor) },
         select: storedReportSelect,
       });
       if (!stored) return notFound;
@@ -455,7 +461,7 @@ export const deleteReport = authorizedAction(
 
     const result = await db.$transaction(async (tx): Promise<ActionResult> => {
       const stored = await tx.workReport.findFirst({
-        where: { id, ...reportAccessWhere(actor) },
+        where: { id, ...reportsWhere(actor) },
         select: storedReportSelect,
       });
       if (!stored) return notFound;
@@ -490,5 +496,200 @@ export const deleteReport = authorizedAction(
 
     if (result.ok) revalidatePath(REPORTS_PATH, "layout");
     return result;
+  },
+);
+
+// Approval and its withdrawal (docs/ТЗ.md, 7.7). Like every write into a project they lock its row
+// first, and the status of the report is the condition of the write: a second click in another
+// tab changes nothing and says so.
+
+const statusChanged: ActionFailure = { ok: false, error: "reports.errors.statusChanged" };
+const invalidRequest: ActionFailure = { ok: false, error: "errors.invalidRequest" };
+
+/** One page of the registry at most; the ids are those of the rows ticked on it. */
+const reportIdsSchema = z
+  .array(z.cuid())
+  .min(1)
+  .max(PAGE_SIZE_OPTIONS.at(-1) ?? 100);
+
+// One relation at most inside the transaction, as above.
+const statusSelect = {
+  id: true,
+  projectId: true,
+  status: true,
+  unapprovalReason: true,
+  workDate: true,
+  user: { select: { fullName: true } },
+} as const satisfies Prisma.WorkReportSelect;
+
+type StatusTarget = Prisma.WorkReportGetPayload<{ select: typeof statusSelect }>;
+
+type AuditContext = Awaited<ReturnType<typeof auditContext>>;
+
+function statusSummaryValues(report: StatusTarget, project: LockedProject) {
+  return reportSummaryValues({
+    workerName: report.user.fullName,
+    workDate: report.workDate.toISOString().slice(0, 10),
+    project,
+  });
+}
+
+/** Approves the report if it is still unapproved; false when it was not. */
+async function approveOne(
+  tx: Prisma.TransactionClient,
+  actor: ActionActor,
+  report: StatusTarget,
+  project: LockedProject,
+  { t, request }: AuditContext,
+): Promise<boolean> {
+  const { count } = await tx.workReport.updateMany({
+    where: { id: report.id, deletedAt: null, projectId: project.id, status: "UNAPPROVED" },
+    data: {
+      status: "APPROVED",
+      approvedAt: new Date(),
+      approvedById: actor.id,
+      // The reason of an earlier withdrawal stays in the history only.
+      unapprovalReason: null,
+      unapprovedAt: null,
+      unapprovedById: null,
+      updatedById: actor.id,
+    },
+  });
+  if (count === 0) return false;
+
+  await logAudit(tx, {
+    ...request,
+    actor,
+    action: "STATUS_CHANGE",
+    entity: "WorkReport",
+    entityId: report.id,
+    summary: t("audit.summaries.reportApproved", statusSummaryValues(report, project)),
+    changes: diffEntity(
+      { status: t("reports.statuses.UNAPPROVED"), unapprovalReason: report.unapprovalReason },
+      { status: t("reports.statuses.APPROVED"), unapprovalReason: null },
+    ),
+  });
+  return true;
+}
+
+async function changeStatus(
+  actor: ActionActor,
+  id: string,
+  change: (
+    tx: Prisma.TransactionClient,
+    report: StatusTarget,
+    project: LockedProject,
+  ) => Promise<boolean>,
+): Promise<ActionResult> {
+  const result = await db.$transaction(async (tx): Promise<ActionResult> => {
+    const report = await tx.workReport.findFirst({
+      where: { id, ...reportsWhere(actor) },
+      select: statusSelect,
+    });
+    if (!report) return notFound;
+    const project = (await lockProjects(tx, [report.projectId])).get(report.projectId);
+    if (!project) return closed;
+
+    if (await change(tx, report, project)) return { ok: true };
+    const still = await tx.workReport.count({ where: { id, ...reportsWhere(actor) } });
+    return still ? statusChanged : notFound;
+  });
+
+  if (result.ok) revalidatePath(REPORTS_PATH, "layout");
+  return result;
+}
+
+export const approveReport = authorizedAction(
+  "reports.approve",
+  async (actor, id: string): Promise<ActionResult> => {
+    if (!reportIdSchema.safeParse(id).success) return notFound;
+    const context = await auditContext();
+
+    return changeStatus(actor, id, (tx, report, project) =>
+      approveOne(tx, actor, report, project, context),
+    );
+  },
+);
+
+/**
+ * "Утвердить выбранные": approves the reports that are still unapproved when written and whose
+ * project is in progress, and skips the rest (docs/ТЗ.md, 7.7). Each approval gets an entry of its
+ * own, in the one transaction.
+ */
+export const approveReports = authorizedAction(
+  "reports.approve",
+  async (actor, input: unknown): Promise<ActionResult<{ approved: number; skipped: number }>> => {
+    const parsed = reportIdsSchema.safeParse(input);
+    if (!parsed.success) return invalidRequest;
+    const ids = [...new Set(parsed.data)];
+    const context = await auditContext();
+
+    const approved = await db.$transaction(async (tx) => {
+      const reports = await tx.workReport.findMany({
+        where: { AND: [{ id: { in: ids } }, { status: "UNAPPROVED" }, reportsWhere(actor)] },
+        select: statusSelect,
+        orderBy: { id: "asc" },
+      });
+      if (reports.length === 0) return 0;
+      const projects = await lockProjects(
+        tx,
+        reports.map((report) => report.projectId),
+      );
+
+      let count = 0;
+      for (const report of reports) {
+        const project = projects.get(report.projectId);
+        if (project && (await approveOne(tx, actor, report, project, context))) count += 1;
+      }
+      return count;
+    });
+
+    if (approved > 0) revalidatePath(REPORTS_PATH, "layout");
+    return { ok: true, approved, skipped: ids.length - approved };
+  },
+);
+
+/**
+ * Withdraws the approval with a reason the worker sees until the report is approved again; the
+ * worker may then edit and delete it (docs/ТЗ.md, 7.7).
+ */
+export const unapproveReport = authorizedAction(
+  "reports.approve",
+  async (actor, id: string, input: unknown): Promise<ActionResult> => {
+    if (!reportIdSchema.safeParse(id).success) return notFound;
+    const parsed = unapproveReportSchema.safeParse(input);
+    if (!parsed.success) return validationFailure(parsed.error);
+    const { reason } = parsed.data;
+    const { t, request } = await auditContext();
+
+    return changeStatus(actor, id, async (tx, report, project) => {
+      const { count } = await tx.workReport.updateMany({
+        where: { id, deletedAt: null, projectId: project.id, status: "APPROVED" },
+        data: {
+          status: "UNAPPROVED",
+          approvedAt: null,
+          approvedById: null,
+          unapprovalReason: reason,
+          unapprovedAt: new Date(),
+          unapprovedById: actor.id,
+          updatedById: actor.id,
+        },
+      });
+      if (count === 0) return false;
+
+      await logAudit(tx, {
+        ...request,
+        actor,
+        action: "STATUS_CHANGE",
+        entity: "WorkReport",
+        entityId: id,
+        summary: t("audit.summaries.reportUnapproved", statusSummaryValues(report, project)),
+        changes: diffEntity(
+          { status: t("reports.statuses.APPROVED"), unapprovalReason: null },
+          { status: t("reports.statuses.UNAPPROVED"), unapprovalReason: reason },
+        ),
+      });
+      return true;
+    });
   },
 );

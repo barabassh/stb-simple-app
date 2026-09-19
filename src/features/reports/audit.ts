@@ -46,7 +46,9 @@ export function reportAuditSnapshot(
 }
 
 /** What a summary names a report by: "Иванов И. И. за 18.09.2026, проект 2026-001". */
-export function reportSummaryValues(report: ReportAuditRecord) {
+export function reportSummaryValues(
+  report: Pick<ReportAuditRecord, "workerName" | "workDate" | "project">,
+) {
   return {
     worker: formatShortName(report.workerName),
     date: calendarDate(report.workDate),
