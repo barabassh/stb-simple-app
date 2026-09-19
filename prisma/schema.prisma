@@ -88,6 +88,8 @@ model User {
   createdWorkReports      WorkReport[]     @relation("WorkReportCreatedBy")
   updatedWorkReports      WorkReport[]     @relation("WorkReportUpdatedBy")
 
+  preference              UserPreference?
+
   @@index([role])
   @@index([isActive])
   @@index([fullName])
@@ -469,4 +471,15 @@ model WorkReport {
   @@index([userId, workDate])
   @@index([contractorId, workDate])
   @@index([status, workDate])
+}
+
+// Display settings of the user's own tables (docs/СХЕМА-БД.md, 10.2): not accounting data, so
+// without the stamps, the soft delete and the audit of the other models.
+model UserPreference {
+  userId     String   @id
+  // { "reports": { "hiddenColumns": ["lunchMinutes"] } }, checked by Zod when read and written.
+  tables     Json     @default("{}")
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

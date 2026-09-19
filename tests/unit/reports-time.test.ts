@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { formatHours, formatTime, parseTime, workedMinutes } from "@/features/reports/time";
+import {
+  formatDuration,
+  formatHours,
+  formatTime,
+  hoursBudgetUse,
+  parseTime,
+  weekdayOf,
+  workedMinutes,
+} from "@/features/reports/time";
 
 describe("parseTime", () => {
   it.each([
@@ -74,5 +82,63 @@ describe("workedMinutes and formatHours", () => {
 
   it.each([-1, 1.5, NaN])("rejects %s minutes", (minutes) => {
     expect(() => formatHours(minutes)).toThrow(RangeError);
+  });
+});
+
+describe("hoursBudgetUse", () => {
+  it.each([
+    [7230, "500.00", 24],
+    [30000, "500.00", 100],
+    [150, "4.00", 63],
+    [0, "0.00", 0],
+    [0, "500.00", 0],
+  ])("counts %i minutes as used of %s hours in whole percent", (minutes, budget, percent) => {
+    expect(hoursBudgetUse(minutes, budget)).toEqual({ exceeded: false, percent });
+  });
+
+  it.each([
+    [30750, "500.00", "12,50"],
+    [1, "0.00", "0,02"],
+    [30001, "500.00", "0,02"],
+  ])("tells how far %i minutes are over %s hours", (minutes, budget, excess) => {
+    expect(hoursBudgetUse(minutes, budget)).toEqual({ exceeded: true, excess });
+  });
+
+  it("agrees with the hours shown when over by less than a hundredth", () => {
+    // 2 minutes are shown as 0,03 hours, like the budget: used, not exceeded.
+    expect(formatHours(2)).toBe("0,03");
+    expect(hoursBudgetUse(2, "0.03")).toEqual({ exceeded: false, percent: 100 });
+  });
+
+  it.each(["500", "500.5", "-1.00", "1,00"])("rejects the budget %j", (budget) => {
+    expect(() => hoursBudgetUse(60, budget)).toThrow(RangeError);
+  });
+});
+
+describe("formatDuration", () => {
+  it.each([
+    [0, "0:00"],
+    [5, "0:05"],
+    [30, "0:30"],
+    [60, "1:00"],
+    [90, "1:30"],
+    [615, "10:15"],
+  ])("shows %i minutes as %s", (minutes, value) => {
+    expect(formatDuration(minutes)).toBe(value);
+  });
+
+  it.each([-1, 1.5])("rejects %d", (minutes) => {
+    expect(() => formatDuration(minutes)).toThrow(RangeError);
+  });
+});
+
+describe("weekdayOf", () => {
+  it.each([
+    ["2026-09-14", "monday"],
+    ["2026-09-16", "wednesday"],
+    ["2026-09-19", "saturday"],
+    ["2026-09-20", "sunday"],
+  ])("tells %s is a %s", (day, weekday) => {
+    expect(weekdayOf(new Date(`${day}T00:00:00Z`))).toBe(weekday);
   });
 });

@@ -3,6 +3,8 @@
 import {
   createColumnHelper,
   useTable,
+  type ColumnSizingState,
+  type columnResizingState,
   type PaginationState,
   type RowData,
   type SortDirection,
@@ -13,7 +15,7 @@ import {
 import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, ChevronsUpDownIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Fragment, useMemo, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +45,28 @@ export type DataTableProps<TData extends RowData> = {
   getRowId?: (row: TData) => string;
   /** Adds a toggle to every row that opens this content in a full-width row beneath it. */
   renderRowDetails?: (row: TData) => React.ReactNode;
+  /**
+   * Lets the user drag the right edge of a column header to change its width; a double click
+   * returns the column to the `size` of its definition. `sizes` are the widths saved earlier, and
+   * `onSizesChange` gets them all when a drag ends. The table then lays out by these widths.
+   */
+  resizing?: {
+    sizes: ColumnSizingState;
+    onSizesChange: (sizes: ColumnSizingState) => void;
+  };
+};
+
+function roundSizes(sizes: ColumnSizingState): ColumnSizingState {
+  return Object.fromEntries(Object.entries(sizes).map(([id, size]) => [id, Math.round(size)]));
+}
+
+const NOT_RESIZING: columnResizingState = {
+  columnSizingStart: [],
+  deltaOffset: null,
+  deltaPercentage: null,
+  isResizingColumn: false,
+  startOffset: null,
+  startSize: null,
 };
 
 const DETAILS_COLUMN_ID = "details";
@@ -59,12 +83,35 @@ export function DataTable<TData extends RowData>({
   emptyState,
   getRowId,
   renderRowDetails,
+  resizing,
 }: DataTableProps<TData>) {
   const t = useTranslations("dataTable");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(resizing?.sizes ?? {});
+  const [columnResizing, setColumnResizing] = useState<columnResizingState>(NOT_RESIZING);
+  const resizable = resizing !== undefined;
+
+  // The widths are handed on once, when the user lets go of the edge, not on every pixel.
+  const onSizesChange = useRef(resizing?.onSizesChange);
+  onSizesChange.current = resizing?.onSizesChange;
+  const wasResizing = useRef(false);
+  // A click on the edge without moving it ends a "drag" too; nothing changed, so nothing is saved.
+  const saved = useRef(JSON.stringify(roundSizes(resizing?.sizes ?? {})));
+  const handOn = (sizes: ColumnSizingState) => {
+    const json = JSON.stringify(sizes);
+    if (json === saved.current) return;
+    saved.current = json;
+    onSizesChange.current?.(sizes);
+  };
+  useEffect(() => {
+    const now = columnResizing.isResizingColumn !== false;
+    // A drag leaves fractions of a pixel; widths are kept in whole pixels.
+    if (wasResizing.current && !now) handOn(roundSizes(columnSizing));
+    wasResizing.current = now;
+  });
 
   // Controlled state is synchronised into the table store, so it must keep its identity between renders.
   const sortColumn = state.sort?.column;
@@ -122,7 +169,11 @@ export function DataTable<TData extends RowData>({
     columns: tableColumns,
     getRowId,
     rowCount,
-    state: { sorting, pagination },
+    state: { sorting, pagination, columnSizing, columnResizing },
+    enableColumnResizing: resizable,
+    columnResizeMode: "onChange",
+    onColumnSizingChange: (updater) => setColumnSizing((current) => resolve(updater, current)),
+    onColumnResizingChange: (updater) => setColumnResizing((current) => resolve(updater, current)),
     manualPagination: true,
     manualSorting: true,
     enableMultiSort: false,
@@ -152,6 +203,12 @@ export function DataTable<TData extends RowData>({
   const rows = table.getRowModel().rows;
   const columnCount = table.getAllLeafColumns().length;
 
+  function resetWidth(columnId: string) {
+    const rest = Object.fromEntries(Object.entries(columnSizing).filter(([id]) => id !== columnId));
+    setColumnSizing(rest);
+    handOn(roundSizes(rest));
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div
@@ -161,7 +218,14 @@ export function DataTable<TData extends RowData>({
           isPending && "opacity-60",
         )}
       >
-        <Table>
+        <Table
+          // A fixed layout keeps each column at its width; the table still fills a wider block.
+          style={
+            resizable
+              ? { tableLayout: "fixed", width: table.getTotalSize(), minWidth: "100%" }
+              : undefined
+          }
+        >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
@@ -172,7 +236,11 @@ export function DataTable<TData extends RowData>({
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className={cn(header.column.id === DETAILS_COLUMN_ID && "w-0")}
+                      className={cn(
+                        header.column.id === DETAILS_COLUMN_ID && "w-0",
+                        resizable && "relative overflow-hidden text-ellipsis",
+                      )}
+                      style={resizable ? { width: header.getSize() } : undefined}
                       aria-sort={
                         sorted === "asc"
                           ? "ascending"
@@ -194,6 +262,24 @@ export function DataTable<TData extends RowData>({
                       ) : (
                         <table.FlexRender header={header} />
                       )}
+                      {resizable && header.column.getCanResize() && (
+                        <div
+                          aria-hidden
+                          onMouseDown={(event) => {
+                            // The second press of a double click resets the width instead of
+                            // starting a drag, whose end would write the old width back.
+                            if (event.detail >= 2) resetWidth(header.column.id);
+                            else header.getResizeHandler()(event);
+                          }}
+                          onTouchStart={header.getResizeHandler()}
+                          title={t("resizeColumn")}
+                          className={cn(
+                            "absolute top-0 right-0 h-full w-2 cursor-col-resize touch-none select-none",
+                            "after:absolute after:top-1/4 after:right-0 after:h-1/2 after:w-px after:bg-border hover:after:w-0.5 hover:after:bg-filter-active",
+                            header.column.getIsResizing() && "after:w-0.5 after:bg-filter-active",
+                          )}
+                        />
+                      )}
                     </TableHead>
                   );
                 })}
@@ -206,7 +292,10 @@ export function DataTable<TData extends RowData>({
                 <Fragment key={row.id}>
                   <TableRow>
                     {row.getAllCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell
+                        key={cell.id}
+                        className={cn(resizable && "overflow-hidden text-ellipsis")}
+                      >
                         <table.FlexRender cell={cell} />
                       </TableCell>
                     ))}

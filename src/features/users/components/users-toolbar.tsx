@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useOptimistic, useTransition } from "react";
 
+import { ACTIVE_FILTER_CLASS, ResetFiltersButton } from "@/components/data-table/filter-styles";
 import {
   useDebouncedFilter,
   useFilterNavigation,
@@ -25,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Role } from "@/generated/prisma/enums";
+import { cn } from "@/lib/utils";
 
 import {
   DEFAULT_USER_STATUS,
@@ -80,10 +82,13 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
     });
   }
 
-  const hasFilters =
-    search.input.trim() !== "" ||
-    optimisticRoles.length > 0 ||
-    optimisticStatus !== DEFAULT_USER_STATUS;
+  const active = {
+    search: search.input.trim() !== "",
+    roles: optimisticRoles.length > 0,
+    status: optimisticStatus !== DEFAULT_USER_STATUS,
+  };
+  const activeCount = Object.values(active).filter(Boolean).length;
+  const mark = (on: boolean) => (on ? ACTIVE_FILTER_CLASS : undefined);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -98,13 +103,13 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
           onChange={(event) => search.setInput(event.target.value)}
           placeholder={t("list.searchPlaceholder")}
           aria-label={t("list.searchLabel")}
-          className="pl-8"
+          className={cn("pl-8", mark(active.search))}
         />
       </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline">
+          <Button variant="outline" className={mark(active.roles)}>
             {t("list.roleFilter")}
             {optimisticRoles.length > 0 && (
               <Badge variant="secondary">{optimisticRoles.length}</Badge>
@@ -128,7 +133,10 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
       </DropdownMenu>
 
       <Select value={optimisticStatus} onValueChange={changeStatus}>
-        <SelectTrigger className="w-44" aria-label={t("list.statusFilter")}>
+        <SelectTrigger
+          className={cn("w-44", mark(active.status))}
+          aria-label={t("list.statusFilter")}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -140,11 +148,12 @@ export function UsersToolbar({ query, roles, status }: UsersToolbarProps) {
         </SelectContent>
       </Select>
 
-      {hasFilters && (
-        <Button variant="ghost" onClick={resetFilters}>
-          <XIcon aria-hidden />
-          {t("list.resetFilters")}
-        </Button>
+      {activeCount > 0 && (
+        <ResetFiltersButton
+          label={t("list.resetFilters")}
+          count={activeCount}
+          onClick={resetFilters}
+        />
       )}
     </div>
   );

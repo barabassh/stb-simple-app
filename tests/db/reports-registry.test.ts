@@ -176,27 +176,34 @@ describe("the registry", () => {
       minutes: 600,
       mileageKm: 90,
       approvedMinutes: 100,
+      approvedMileageKm: 15,
     });
     const secondPage = await list(manager, { status: "all", page: "2" });
     const rows = [...firstPage.rows, ...secondPage.rows];
     expect(rows.reduce((sum, row) => sum + row.workedMinutes, 0)).toBe(600);
 
-    // By default an administrator or a manager sees the reports still to approve.
-    expect((await list(manager)).totals).toMatchObject({ count: 25, minutes: 500 });
+    // Every role starts from all statuses; the queue to approve is a filter away.
+    expect((await list(manager)).totals).toMatchObject({ count: 30, minutes: 600 });
+    expect((await list(manager, { status: "unapproved" })).totals).toMatchObject({
+      count: 25,
+      minutes: 500,
+    });
   });
 
-  it("filters by the period, the organisation and the worker, and sorts by hours", async () => {
+  it("filters by the period, the organisation, the worker and the mileage", async () => {
     const project = await createProject();
     const manager = await createUser({ role: "MANAGER" });
     const { contractorId, users } = await contractorAccounts(1);
-    const employee = await createUser({ role: "EMPLOYEE" });
+    const employee = await createUser({ role: "EMPLOYEE", nickname: "Aad" });
     const long = await addReport(users[0], project, {
       day: 5,
       end: "16:30",
       lunch: 30,
       contractorId,
     });
-    const short = await addReport(employee, project, { day: 12, end: "09:00" });
+    const short = await addReport(employee, project, { day: 12, end: "09:00", mileageKm: 25 });
+    const ids = async (query: Record<string, string>) =>
+      (await list(manager, query)).rows.map((row) => row.id);
 
     expect((await list(manager, { from: "2026-03-06" })).rows.map((row) => row.id)).toEqual([
       short,
@@ -206,15 +213,44 @@ describe("the registry", () => {
     expect((await list(manager, { worker: users[0].id })).rows.map((row) => row.id)).toEqual([
       long,
     ]);
-    expect(
-      (await list(manager, { sort: "hours", order: "asc" })).rows.map((row) => row.id),
-    ).toEqual([short, long]);
-    expect(
-      (await list(manager, { sort: "hours", order: "desc" })).rows.map((row) => row.id),
-    ).toEqual([long, short]);
+
+    expect(await ids({ km: "none" })).toEqual([long]);
+    expect(await ids({ km: "some" })).toEqual([short]);
+    expect(await ids({ km: "range", kmFrom: "20", kmTo: "25" })).toEqual([short]);
+    expect(await ids({ km: "range", kmTo: "24" })).toEqual([long]);
+    // A range without the "range" choice, or out of bounds, narrows nothing.
+    expect(await ids({ kmFrom: "20" })).toEqual([short, long]);
+    expect(await ids({ km: "range", kmFrom: "2001" })).toEqual([short, long]);
 
     const options = await listReportFilterOptions(manager, "Наша компания");
     expect(options.organizations?.map((option) => option.id)).toEqual([contractorId, "company"]);
+    // Workers are chosen by the nickname, and listed in its order.
+    expect(options.workers?.map((option) => option.name)).toEqual([
+      "Aad (" + employee.fullName + ")",
+      `${users[0].login} (${users[0].fullName})`,
+    ]);
+  });
+
+  it("sorts by the date only, and shows the worker's nickname", async () => {
+    const project = await createProject();
+    const manager = await createUser({ role: "MANAGER" });
+    const first = await createUser({ role: "EMPLOYEE", nickname: "Zeb" });
+    const second = await createUser({ role: "EMPLOYEE", nickname: "Aad", fullName: "Zwart Aad" });
+    const late = await addReport(first, project, { day: 12, end: "09:00", mileageKm: 90 });
+    const early = await addReport(second, project, { day: 5, end: "16:00" });
+    const ids = async (query: Record<string, string>) =>
+      (await list(manager, { status: "all", ...query })).rows.map((row) => row.id);
+
+    expect(await ids({ sort: "workDate", order: "asc" })).toEqual([early, late]);
+    expect(await ids({ sort: "workDate", order: "desc" })).toEqual([late, early]);
+    // Any other column falls back to the newest day first.
+    for (const sort of ["worker", "project", "hours", "mileageKm", "status", "organization"]) {
+      expect(await ids({ sort, order: "asc" })).toEqual([late, early]);
+    }
+
+    const [row] = (await list(manager, { status: "all", sort: "workDate", order: "asc" })).rows;
+    expect(row).not.toHaveProperty("organization");
+    expect(row.worker).toMatchObject({ nickname: "Aad", fullName: "Zwart Aad" });
   });
 });
 

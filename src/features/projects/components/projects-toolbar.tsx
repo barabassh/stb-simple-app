@@ -1,15 +1,15 @@
 "use client";
 
-import { SearchIcon, XIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useOptimistic, useTransition } from "react";
 
+import { ACTIVE_FILTER_CLASS, ResetFiltersButton } from "@/components/data-table/filter-styles";
 import {
   useDebouncedFilter,
   useFilterNavigation,
 } from "@/components/data-table/use-filter-navigation";
 import { RecordPicker, type RecordOption } from "@/components/reference-book/record-picker";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 import {
   DEFAULT_PROJECT_STATUS,
@@ -73,10 +74,13 @@ export function ProjectsToolbar({ query, status, customerId, customers }: Projec
     });
   }
 
-  const hasFilters =
-    search.input.trim() !== "" ||
-    optimisticCustomer !== null ||
-    optimisticStatus !== DEFAULT_PROJECT_STATUS;
+  const active = {
+    search: search.input.trim() !== "",
+    status: optimisticStatus !== DEFAULT_PROJECT_STATUS,
+    customer: optimisticCustomer !== null,
+  };
+  const activeCount = Object.values(active).filter(Boolean).length;
+  const mark = (on: boolean) => (on ? ACTIVE_FILTER_CLASS : undefined);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -91,14 +95,17 @@ export function ProjectsToolbar({ query, status, customerId, customers }: Projec
           onChange={(event) => search.setInput(event.target.value)}
           placeholder={t(customers ? "searchPlaceholder" : "searchPlaceholderActive")}
           aria-label={t("searchLabel")}
-          className="pl-8"
+          className={cn("pl-8", mark(active.search))}
         />
       </div>
 
       {customers && (
         <>
           <Select value={optimisticStatus} onValueChange={changeStatus}>
-            <SelectTrigger className="w-44" aria-label={t("statusFilter")}>
+            <SelectTrigger
+              className={cn("w-44", mark(active.status))}
+              aria-label={t("statusFilter")}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -122,16 +129,14 @@ export function ProjectsToolbar({ query, status, customerId, customers }: Projec
               noneLabel={t("customerFilterAll")}
               searchLabel={t("customerSearch")}
               nothingFound={t("customerNothingFound")}
+              className={mark(active.customer)}
             />
           </div>
         </>
       )}
 
-      {hasFilters && (
-        <Button variant="ghost" onClick={resetFilters}>
-          <XIcon aria-hidden />
-          {t("resetFilters")}
-        </Button>
+      {activeCount > 0 && (
+        <ResetFiltersButton label={t("resetFilters")} count={activeCount} onClick={resetFilters} />
       )}
     </div>
   );

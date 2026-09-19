@@ -1,8 +1,12 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { BackLink } from "@/components/back-link";
-import { readParam, TAB_SEARCH_PARAM } from "@/components/data-table/search-params";
+import {
+  readParam,
+  resetFiltersHref,
+  TAB_SEARCH_PARAM,
+} from "@/components/data-table/search-params";
 import { DetailsGroup } from "@/components/details/details-group";
 import { UrlTabs } from "@/components/url-tabs";
 import { AuditTable } from "@/features/audit/components/audit-table";
@@ -14,8 +18,21 @@ import { ProjectClosedStamp } from "@/features/projects/components/project-close
 import { ProjectStatusBadge } from "@/features/projects/components/project-status-badge";
 import { projectDetailGroup } from "@/features/projects/details";
 import { getProject } from "@/features/projects/queries";
+import { reportAccess } from "@/features/reports/columns";
+import { ProjectParticipants } from "@/features/reports/components/project-participants";
+import { ProjectReports } from "@/features/reports/components/project-reports";
+import { hasReportFilters, parseReportsListParams } from "@/features/reports/list-params";
+import {
+  getReportTableSettings,
+  getOwnReportBlock,
+  getProjectReportTotals,
+  listProjectParticipants,
+  listReportFilterOptions,
+  listReports,
+} from "@/features/reports/queries";
+import { FORBIDDEN_PATH } from "@/lib/auth/constants";
 import { requirePagePermission } from "@/lib/auth/current-user";
-import { can } from "@/lib/permissions";
+import { can, canAny, REPORTS_SECTION } from "@/lib/permissions";
 
 type ProjectPageProps = {
   params: Promise<{ id: string }>;
@@ -23,24 +40,49 @@ type ProjectPageProps = {
 };
 
 const DETAILS_TAB = "details";
+const REPORTS_TAB = "reports";
+const PARTICIPANTS_TAB = "participants";
+const HISTORY_TAB = "history";
 
-// A contractor opens the card of a project in progress with projects.readActive: the details only,
-// without tabs, stamps or buttons (docs/ТЗ.md, 6.9).
+// A contractor opens the card of a project in progress with projects.readActive: the details and
+// their own reports, without stamps or buttons (docs/ТЗ.md, 6.9, 7.11).
 export default async function ProjectPage({ params, searchParams }: ProjectPageProps) {
   const viewer = await requirePagePermission("projects.readActive");
   const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
+  const requestedTab = readParam(resolvedSearchParams, TAB_SEARCH_PARAM);
+
+  // The participants are not merely hidden: their tab's address is refused (docs/ПРАВА-ДОСТУПА.md, 20).
+  const showParticipants = can(viewer, "projects.participants");
+  if (requestedTab === PARTICIPANTS_TAB && !showParticipants) redirect(FORBIDDEN_PATH);
 
   const project = await getProject(viewer, id);
   if (!project) notFound();
 
-  const historyTable = parseAuditTableState(resolvedSearchParams);
-  const [history, t, locale] = await Promise.all([
-    can(viewer, "projects.history")
-      ? listEntityAuditLogs(viewer, "Project", project.id, historyTable)
-      : null,
-    getTranslations(),
-    getLocale(),
-  ]);
+  const showReports = canAny(viewer, REPORTS_SECTION);
+  const showHistory = can(viewer, "projects.history");
+  // The reports and the history tables share the paging and sorting parameters, so each reads them
+  // only while its tab is open; switching tabs drops them (UrlTabs).
+  const tabParams = (tab: string) => (requestedTab === tab ? resolvedSearchParams : {});
+  const historyTable = parseAuditTableState(tabParams(HISTORY_TAB));
+  const access = reportAccess(viewer);
+  const reportParams = parseReportsListParams(tabParams(REPORTS_TAB), access, "project");
+  // A reader without projects.read gets only projects in progress, without the status.
+  const inProgress = (project.status ?? "IN_PROGRESS") === "IN_PROGRESS";
+
+  const [t, locale] = await Promise.all([getTranslations(), getLocale()]);
+  const [history, reports, totals, options, block, participants, tableSettings] = await Promise.all(
+    [
+      showHistory ? listEntityAuditLogs(viewer, "Project", project.id, historyTable) : null,
+      showReports ? listReports(viewer, { ...reportParams, projectId: project.id }) : null,
+      showReports ? getProjectReportTotals(viewer, project.id) : null,
+      showReports
+        ? listReportFilterOptions(viewer, t("reports.form.ourCompany"), project.id)
+        : null,
+      can(viewer, "reports.writeOwn") ? getOwnReportBlock(viewer) : null,
+      showParticipants ? listProjectParticipants(viewer, project.id) : null,
+      showReports ? getReportTableSettings(viewer) : null,
+    ],
+  );
 
   const details = (
     <DetailsGroup
@@ -49,25 +91,72 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
       })}
     />
   );
-  const tabs = history && [
+  const tabs = [
     { value: DETAILS_TAB, label: t("projects.card.tabs.details"), content: details },
-    {
-      value: "history",
-      label: t("projects.card.tabs.history"),
-      content: (
-        <AuditTable
-          rows={history.rows}
-          rowCount={history.rowCount}
-          state={historyTable}
-          emptyState={t("audit.historyEmpty")}
-          showEntity={false}
-          showRequestInfo={can(viewer, "audit.read")}
-        />
-      ),
-    },
+    ...(reports && totals && options && tableSettings
+      ? [
+          {
+            value: REPORTS_TAB,
+            label: t("projects.card.tabs.reports"),
+            content: (
+              <ProjectReports
+                projectId={project.id}
+                viewer={viewer}
+                access={access}
+                params={reportParams}
+                options={options}
+                rows={reports.rows}
+                rowCount={reports.rowCount}
+                totals={totals}
+                tableSettings={tableSettings}
+                canCreate={
+                  inProgress &&
+                  (can(viewer, "reports.write") || (can(viewer, "reports.writeOwn") && !block))
+                }
+                block={inProgress ? block : null}
+                resetFiltersHref={
+                  hasReportFilters(reportParams)
+                    ? resetFiltersHref(`/projects/${project.id}`, resolvedSearchParams, [
+                        TAB_SEARCH_PARAM,
+                      ])
+                    : null
+                }
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(participants
+      ? [
+          {
+            value: PARTICIPANTS_TAB,
+            label: t("projects.card.tabs.participants"),
+            content: (
+              <ProjectParticipants groups={participants} userLinks={can(viewer, "users.read")} />
+            ),
+          },
+        ]
+      : []),
+    ...(history
+      ? [
+          {
+            value: HISTORY_TAB,
+            label: t("projects.card.tabs.history"),
+            content: (
+              <AuditTable
+                rows={history.rows}
+                rowCount={history.rowCount}
+                state={historyTable}
+                emptyState={t("audit.historyEmpty")}
+                showEntity={false}
+                showRequestInfo={can(viewer, "audit.read")}
+              />
+            ),
+          },
+        ]
+      : []),
   ];
-  const requestedTab = readParam(resolvedSearchParams, TAB_SEARCH_PARAM);
-  const tab = tabs?.find(({ value }) => value === requestedTab)?.value ?? DETAILS_TAB;
+  const tab = tabs.find(({ value }) => value === requestedTab)?.value ?? DETAILS_TAB;
 
   return (
     <div className="flex flex-col gap-4">
@@ -98,7 +187,7 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
         )}
       </div>
 
-      {tabs ? <UrlTabs value={tab} defaultValue={DETAILS_TAB} tabs={tabs} /> : details}
+      {tabs.length > 1 ? <UrlTabs value={tab} defaultValue={DETAILS_TAB} tabs={tabs} /> : details}
     </div>
   );
 }

@@ -4,15 +4,16 @@ import { getTranslations } from "next-intl/server";
 
 import { resetFiltersHref } from "@/components/data-table/search-params";
 import { Button } from "@/components/ui/button";
-import { reportAccess, reportColumns } from "@/features/reports/columns";
+import { hideableReportColumns, reportAccess, reportColumns } from "@/features/reports/columns";
 import { ReportsTable } from "@/features/reports/components/reports-table";
 import { ReportsToolbar } from "@/features/reports/components/reports-toolbar";
 import {
-  defaultReportStatus,
+  DEFAULT_REPORT_STATUS,
   hasReportFilters,
   parseReportsListParams,
 } from "@/features/reports/list-params";
 import {
+  getReportTableSettings,
   getOwnReportBlock,
   listReportFilterOptions,
   listReports,
@@ -35,14 +36,15 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const params = parseReportsListParams(resolvedSearchParams, access);
 
   const t = await getTranslations();
-  const [{ rows, rowCount, totals }, options, block] = await Promise.all([
+  const [{ rows, rowCount, totals }, options, block, tableSettings] = await Promise.all([
     listReports(viewer, params),
     listReportFilterOptions(viewer, t("reports.form.ourCompany")),
     can(viewer, "reports.writeOwn") ? getOwnReportBlock(viewer) : null,
+    getReportTableSettings(viewer),
   ]);
   const canCreate = can(viewer, "reports.write") || (can(viewer, "reports.writeOwn") && !block);
 
-  const emptyState = hasReportFilters(params, access) ? (
+  const emptyState = hasReportFilters(params) ? (
     <div className="flex flex-col items-center gap-1">
       <span>{t("reports.list.nothingFound")}</span>
       <Button variant="link" asChild>
@@ -75,11 +77,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         </p>
       )}
 
-      <ReportsToolbar
-        filters={params}
-        defaultStatus={defaultReportStatus(access)}
-        options={options}
-      />
+      <ReportsToolbar filters={params} defaultStatus={DEFAULT_REPORT_STATUS} options={options} />
 
       <p className="text-sm text-muted-foreground">
         {t("reports.list.totals", {
@@ -97,6 +95,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         rowCount={rowCount}
         state={params.table}
         columns={reportColumns(access)}
+        hideable={hideableReportColumns(access)}
+        settings={tableSettings}
         emptyState={emptyState}
         viewer={viewer}
         projectLinks={can(viewer, "projects.read") ? "all" : "inProgress"}

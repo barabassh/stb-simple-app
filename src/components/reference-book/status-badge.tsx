@@ -1,12 +1,13 @@
 import { useTranslations } from "next-intl";
 
+import { ACTIVE_STATUS_CLASS, INACTIVE_STATUS_CLASS } from "@/components/status-colors";
 import { Badge } from "@/components/ui/badge";
 
 export function ReferenceStatusBadge({ isActive }: { isActive: boolean }) {
   const t = useTranslations("referenceBooks.statuses");
 
   return (
-    <Badge variant={isActive ? "secondary" : "outline"}>
+    <Badge variant="outline" className={isActive ? ACTIVE_STATUS_CLASS : INACTIVE_STATUS_CLASS}>
       {t(isActive ? "active" : "archived")}
     </Badge>
   );

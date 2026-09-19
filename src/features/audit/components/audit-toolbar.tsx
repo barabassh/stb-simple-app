@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useOptimistic, useTransition } from "react";
 
+import { ACTIVE_FILTER_CLASS, ResetFiltersButton } from "@/components/data-table/filter-styles";
 import {
   useDebouncedFilter,
   useFilterNavigation,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import type { AuditAction } from "@/generated/prisma/enums";
 import { AUDIT_ENTITIES } from "@/lib/audit";
+import { cn } from "@/lib/utils";
 
 import { AUDIT_ACTIONS, AUDIT_SEARCH_PARAMS, type AuditListParams } from "../list-params";
 
@@ -77,12 +79,15 @@ export function AuditToolbar({ actor, actions, entity, from, to }: AuditToolbarP
     });
   }
 
-  const hasFilters =
-    author.input.trim() !== "" ||
-    fromDay.input !== "" ||
-    toDay.input !== "" ||
-    optimisticActions.length > 0 ||
-    optimisticEntity !== null;
+  const active = {
+    search: author.input.trim() !== "",
+    actions: optimisticActions.length > 0,
+    entity: optimisticEntity !== null,
+    from: fromDay.input !== "",
+    to: toDay.input !== "",
+  };
+  const activeCount = Object.values(active).filter(Boolean).length;
+  const mark = (on: boolean) => (on ? ACTIVE_FILTER_CLASS : undefined);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -97,13 +102,13 @@ export function AuditToolbar({ actor, actions, entity, from, to }: AuditToolbarP
           onChange={(event) => author.setInput(event.target.value)}
           placeholder={t("filters.actorPlaceholder")}
           aria-label={t("filters.actor")}
-          className="pl-8"
+          className={cn("pl-8", mark(active.search))}
         />
       </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline">
+          <Button variant="outline" className={mark(active.actions)}>
             {t("filters.action")}
             {optimisticActions.length > 0 && (
               <Badge variant="secondary">{optimisticActions.length}</Badge>
@@ -127,7 +132,7 @@ export function AuditToolbar({ actor, actions, entity, from, to }: AuditToolbarP
       </DropdownMenu>
 
       <Select value={optimisticEntity ?? ALL_ENTITIES} onValueChange={changeEntity}>
-        <SelectTrigger className="w-44" aria-label={t("filters.entity")}>
+        <SelectTrigger className={cn("w-44", mark(active.entity))} aria-label={t("filters.entity")}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -151,7 +156,7 @@ export function AuditToolbar({ actor, actions, entity, from, to }: AuditToolbarP
             value={fromDay.input}
             max={toDay.input || undefined}
             onChange={(event) => fromDay.setInput(event.target.value)}
-            className="w-40"
+            className={cn("w-40", mark(active.from))}
           />
         </div>
         <div className="flex items-center gap-2">
@@ -164,16 +169,13 @@ export function AuditToolbar({ actor, actions, entity, from, to }: AuditToolbarP
             value={toDay.input}
             min={fromDay.input || undefined}
             onChange={(event) => toDay.setInput(event.target.value)}
-            className="w-40"
+            className={cn("w-40", mark(active.to))}
           />
         </div>
       </div>
 
-      {hasFilters && (
-        <Button variant="ghost" onClick={resetFilters}>
-          <XIcon aria-hidden />
-          {t("filters.reset")}
-        </Button>
+      {activeCount > 0 && (
+        <ResetFiltersButton label={t("filters.reset")} count={activeCount} onClick={resetFilters} />
       )}
     </div>
   );

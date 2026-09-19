@@ -112,7 +112,11 @@
     "lastPage": "Последняя страница",
     "details": "Подробности",
     "showDetails": "Показать подробности",
-    "hideDetails": "Скрыть подробности"
+    "hideDetails": "Скрыть подробности",
+    "columnSettings": "Столбцы",
+    "visibleColumns": "Показывать столбцы",
+    "showAllColumns": "Показать все",
+    "resizeColumn": "Потяните, чтобы изменить ширину; двойной щелчок — ширина по умолчанию"
   },
   "export": {
     "xlsx": "Экспорт в Excel",
@@ -608,6 +612,8 @@
       "duration": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
       "tabs": {
         "details": "Сведения",
+        "reports": "Отчёты",
+        "participants": "Участники",
         "history": "История изменений"
       }
     },
@@ -653,7 +659,7 @@
       "organizationNothingFound": "Организация не найдена",
       "workerFilter": "Работник",
       "workerFilterAll": "Все работники",
-      "workerSearch": "Поиск по ФИО и никнейму",
+      "workerSearch": "Поиск по никнейму и ФИО",
       "workerNothingFound": "Работник не найден",
       "from": "С даты",
       "to": "По дату",
@@ -667,7 +673,18 @@
       "selectPage": "Выбрать все неутверждённые отчёты на странице",
       "selectColumn": "Выбор",
       "approveSelected": "Утвердить выбранные",
-      "approveSelectedCount": "Утвердить выбранные: {count}"
+      "approveSelectedCount": "Утвердить выбранные: {count}",
+      "searchPlaceholderProject": "Работы или работник",
+      "searchPlaceholderProjectOwn": "Выполненные работы",
+      "mileageFilter": "Пробег",
+      "mileageFilters": {
+        "all": "Любой пробег",
+        "none": "Без пробега",
+        "some": "С пробегом",
+        "range": "Пробег от — до"
+      },
+      "mileageFrom": "от, км",
+      "mileageTo": "до, км"
     },
     "statuses": {
       "UNAPPROVED": "Не утверждён",
@@ -764,12 +781,13 @@
     },
     "columns": {
       "workDate": "Дата",
+      "weekday": "День недели",
       "worker": "Работник",
       "organization": "Организация",
       "project": "Проект",
       "workDescription": "Выполненные работы",
       "time": "Время",
-      "lunchMinutes": "Обед, мин",
+      "lunchMinutes": "Обед",
       "hours": "Часы",
       "mileageKm": "Пробег, км",
       "status": "Статус",
@@ -789,6 +807,37 @@
         "history": "История изменений"
       },
       "projectValue": "{number} «{name}»"
+    },
+    "project": {
+      "totalsTitle": "Итоги проекта",
+      "totalsTitleOwn": "Итоги ваших отчётов",
+      "totals": "Отчётов: {count} · часы: утверждено {approvedHours} из {hours} · км: утверждено {approvedKm} из {km}",
+      "budget": "Бюджет часов: {hours}",
+      "budgetUsed": "использовано {percent} %",
+      "budgetExceeded": "Превышен на {hours} ч",
+      "empty": "По проекту ещё нет отчётов",
+      "emptyOwn": "У вас ещё нет отчётов по проекту"
+    },
+    "participants": {
+      "columns": {
+        "worker": "Работник",
+        "reports": "Отчётов",
+        "approvedHours": "Часов утверждено",
+        "hours": "Часов всего",
+        "mileageKm": "Км всего",
+        "lastWorkDate": "Последний отчёт"
+      },
+      "groupTotal": "Итого: {organization}",
+      "empty": "По проекту ещё нет отчётов — участников нет"
+    },
+    "weekdays": {
+      "monday": "Понедельник",
+      "tuesday": "Вторник",
+      "wednesday": "Среда",
+      "thursday": "Четверг",
+      "friday": "Пятница",
+      "saturday": "Суббота",
+      "sunday": "Воскресенье"
     }
   },
   "auth": {

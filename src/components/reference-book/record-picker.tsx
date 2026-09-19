@@ -27,6 +27,8 @@ type RecordPickerProps = {
   searchLabel: string;
   nothingFound: string;
   ref?: React.Ref<HTMLButtonElement>;
+  /** Added to the trigger, e.g. to mark a filter that is set. */
+  className?: string;
 };
 
 /**
@@ -45,6 +47,7 @@ export function RecordPicker({
   searchLabel,
   nothingFound,
   ref,
+  className,
 }: RecordPickerProps) {
   const t = useTranslations("referenceBooks");
   const listId = useId();
@@ -114,7 +117,7 @@ export function RecordPicker({
           aria-expanded={open}
           aria-controls={listId}
           aria-invalid={invalid}
-          className="w-full justify-between font-normal"
+          className={cn("w-full justify-between font-normal", className)}
         >
           <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>
             {selected ? label(selected) : (noneLabel ?? placeholder ?? "")}

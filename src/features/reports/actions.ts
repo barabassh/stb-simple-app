@@ -7,13 +7,22 @@ import { z } from "zod";
 import { PAGE_SIZE_OPTIONS } from "@/components/data-table/search-params";
 import { Prisma } from "@/generated/prisma/client";
 import type { ActionFailure, ActionResult } from "@/lib/action-result";
+import { writeTableSettings } from "@/features/preferences/store";
 import { diffEntity, logAudit } from "@/lib/audit";
 import { authorizedAction, type ActionActor } from "@/lib/auth/authorized-action";
 import { db } from "@/lib/db";
 import { formatCalendarDate } from "@/lib/format";
-import { can, PermissionDeniedError } from "@/lib/permissions";
+import { can, PermissionDeniedError, REPORTS_SECTION } from "@/lib/permissions";
 import { getClientInfo } from "@/lib/request-info";
 
+import {
+  hideableReportColumns,
+  MAX_COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+  REPORT_COLUMNS,
+  reportAccess,
+  reportColumns,
+} from "./columns";
 import { reportAuditSnapshot, reportSummaryValues, type ReportAuditRecord } from "./audit";
 import { REPORTS_WRITE, reportsWhere } from "./queries";
 import {
@@ -30,6 +39,12 @@ import { formatTime } from "./time";
 // constraint of the database rejects them, and only then is the report in the way looked up.
 
 const REPORTS_PATH = "/reports";
+
+/** The registry, the report pages and the "Отчёты" tab with the totals of a project card. */
+function revalidateReports() {
+  revalidatePath(REPORTS_PATH, "layout");
+  revalidatePath("/projects/[id]", "page");
+}
 
 const notFound: ActionFailure = { ok: false, error: "reports.errors.notFound" };
 const closed: ActionFailure = { ok: false, error: "projects.errors.closed" };
@@ -269,7 +284,7 @@ async function writing<T extends ActionResult>(
 ): Promise<T | ActionFailure> {
   try {
     const result = await db.$transaction(write);
-    if (result.ok) revalidatePath(REPORTS_PATH, "layout");
+    if (result.ok) revalidateReports();
     return result;
   } catch (error) {
     if (isOverlap(error)) return overlapFailure(values, owner);
@@ -494,7 +509,7 @@ export const deleteReport = authorizedAction(
       return { ok: true };
     });
 
-    if (result.ok) revalidatePath(REPORTS_PATH, "layout");
+    if (result.ok) revalidateReports();
     return result;
   },
 );
@@ -595,7 +610,7 @@ async function changeStatus(
     return still ? statusChanged : notFound;
   });
 
-  if (result.ok) revalidatePath(REPORTS_PATH, "layout");
+  if (result.ok) revalidateReports();
   return result;
 }
 
@@ -644,7 +659,7 @@ export const approveReports = authorizedAction(
       return count;
     });
 
-    if (approved > 0) revalidatePath(REPORTS_PATH, "layout");
+    if (approved > 0) revalidateReports();
     return { ok: true, approved, skipped: ids.length - approved };
   },
 );
@@ -691,5 +706,51 @@ export const unapproveReport = authorizedAction(
       });
       return true;
     });
+  },
+);
+
+const reportColumnsSchema = z.array(z.enum(REPORT_COLUMNS)).max(REPORT_COLUMNS.length);
+
+/**
+ * The column settings of the reports' tables (docs/ТЗ.md, 7.9). A display setting of the user's
+ * own rather than accounting data, so it has no audit entry (docs/СХЕМА-БД.md, 10.2). Columns
+ * the role does not see, or may not hide, are dropped.
+ */
+export const saveReportColumns = authorizedAction(
+  REPORTS_SECTION,
+  async (actor, input: unknown): Promise<ActionResult> => {
+    const parsed = reportColumnsSchema.safeParse(input);
+    if (!parsed.success) return invalidRequest;
+
+    const hideable = hideableReportColumns(reportAccess(actor));
+    const hidden = [...new Set(parsed.data)].filter((column) => hideable.includes(column));
+    await writeTableSettings(actor.id, "reports", { hiddenColumns: hidden });
+    revalidateReports();
+    return { ok: true };
+  },
+);
+
+const reportColumnSizesSchema = z.partialRecord(
+  z.enum(REPORT_COLUMNS),
+  z.number().int().min(MIN_COLUMN_WIDTH).max(MAX_COLUMN_WIDTH),
+);
+
+/**
+ * The widths the user dragged the reports' columns to, saved when a drag ends (docs/ТЗ.md, 7.9).
+ * Like the hidden columns, a display setting without an audit entry. The page is not refreshed:
+ * the table already shows the widths.
+ */
+export const saveReportColumnSizes = authorizedAction(
+  REPORTS_SECTION,
+  async (actor, input: unknown): Promise<ActionResult> => {
+    const parsed = reportColumnSizesSchema.safeParse(input);
+    if (!parsed.success) return invalidRequest;
+
+    const visible = reportColumns(reportAccess(actor));
+    const columnSizes = Object.fromEntries(
+      Object.entries(parsed.data).filter(([column]) => visible.includes(column as never)),
+    );
+    await writeTableSettings(actor.id, "reports", { columnSizes });
+    return { ok: true };
   },
 );

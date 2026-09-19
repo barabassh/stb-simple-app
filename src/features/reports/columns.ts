@@ -15,8 +15,8 @@ export function reportAccess(user: Pick<SessionUser, "role">): ReportAccess {
 
 export const REPORT_COLUMNS = [
   "workDate",
+  "weekday",
   "worker",
-  "organization",
   "project",
   "workDescription",
   "time",
@@ -28,9 +28,30 @@ export const REPORT_COLUMNS = [
 ] as const;
 export type ReportColumn = (typeof REPORT_COLUMNS)[number];
 
-const ALL_ONLY: readonly ReportColumn[] = ["worker", "organization", "updatedAt"];
+const ALL_ONLY: readonly ReportColumn[] = ["worker", "updatedAt"];
 
-const SORTABLE = ["workDate", "worker", "project", "hours", "mileageKm", "status"] as const;
+/**
+ * Widths in pixels the columns start at, and the range the user may drag them within
+ * (docs/ТЗ.md, 7.9). The ticks and the actions keep their width.
+ */
+export const REPORT_COLUMN_WIDTHS: Record<ReportColumn, number> = {
+  workDate: 120,
+  weekday: 130,
+  worker: 130,
+  project: 220,
+  workDescription: 260,
+  time: 120,
+  lunchMinutes: 80,
+  hours: 80,
+  mileageKm: 100,
+  status: 150,
+  updatedAt: 150,
+};
+export const MIN_COLUMN_WIDTH = 60;
+export const MAX_COLUMN_WIDTH = 800;
+
+/** The table sorts by the date only (docs/ТЗ.md, 7.9). */
+const SORTABLE = ["workDate"] as const;
 export type ReportSortColumn = (typeof SORTABLE)[number];
 
 /** The newest day first, and within a day by the start of work (docs/ТЗ.md, 7.9). */
@@ -39,12 +60,37 @@ export const DEFAULT_REPORT_SORT = { column: "workDate", order: "desc" } as cons
   order: "asc" | "desc";
 };
 
-export function reportColumns(access: ReportAccess): ReportColumn[] {
-  return REPORT_COLUMNS.filter((column) => access.all || !ALL_ONLY.includes(column));
+/**
+ * The registry lists reports of every project; the "Отчёты" tab of a project card lists those of
+ * the project it is on, so the project is neither a column nor a filter there (docs/ТЗ.md, 7.11).
+ */
+export type ReportListScope = "registry" | "project";
+
+export function reportColumns(
+  access: ReportAccess,
+  scope: ReportListScope = "registry",
+): ReportColumn[] {
+  return REPORT_COLUMNS.filter(
+    (column) =>
+      (access.all || !ALL_ONLY.includes(column)) && (scope === "registry" || column !== "project"),
+  );
 }
 
-/** Sorting by the worker is offered only to those who see the column. */
-export function reportSortColumns(access: ReportAccess): ReportSortColumn[] {
-  const visible = reportColumns(access);
+/**
+ * The columns a user may hide in the column settings: the date opens the report, so it stays.
+ * Hidden columns are left out of what reportColumns() offers, never added to it.
+ */
+export function hideableReportColumns(
+  access: ReportAccess,
+  scope: ReportListScope = "registry",
+): ReportColumn[] {
+  return reportColumns(access, scope).filter((column) => column !== "workDate");
+}
+
+export function reportSortColumns(
+  access: ReportAccess,
+  scope: ReportListScope = "registry",
+): ReportSortColumn[] {
+  const visible = reportColumns(access, scope);
   return SORTABLE.filter((column) => visible.includes(column));
 }

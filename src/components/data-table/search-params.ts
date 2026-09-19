@@ -45,10 +45,18 @@ function parsePageSize(value: string | undefined): PageSize {
   return PAGE_SIZE_OPTIONS.find((size) => String(size) === value) ?? DEFAULT_PAGE_SIZE;
 }
 
-/** Link that drops search, filters and page, keeping how the table is sorted and paged. */
-export function resetFiltersHref(pathname: string, searchParams: SearchParamsInput): string {
+/**
+ * Link that drops search, filters and page, keeping how the table is sorted and paged, and the
+ * parameters in `keep`, such as the open tab of a card.
+ */
+export function resetFiltersHref(
+  pathname: string,
+  searchParams: SearchParamsInput,
+  keep: readonly string[] = [],
+): string {
   const params = new URLSearchParams();
   for (const key of [
+    ...keep,
     TABLE_SEARCH_PARAMS.sort,
     TABLE_SEARCH_PARAMS.order,
     TABLE_SEARCH_PARAMS.pageSize,

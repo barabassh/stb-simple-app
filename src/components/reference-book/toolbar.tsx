@@ -1,14 +1,14 @@
 "use client";
 
-import { SearchIcon, XIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useOptimistic, useTransition } from "react";
 
+import { ACTIVE_FILTER_CLASS, ResetFiltersButton } from "@/components/data-table/filter-styles";
 import {
   useDebouncedFilter,
   useFilterNavigation,
 } from "@/components/data-table/use-filter-navigation";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 import {
   DEFAULT_REFERENCE_STATUS,
@@ -89,10 +90,14 @@ export function ReferenceToolbar({ section, query, status, filters = [] }: Refer
     });
   }
 
-  const hasFilters =
-    search.input.trim() !== "" ||
-    Object.values(optimisticFilters).some((value) => value !== null) ||
-    optimisticStatus !== DEFAULT_REFERENCE_STATUS;
+  const active = {
+    search: search.input.trim() !== "",
+    status: optimisticStatus !== DEFAULT_REFERENCE_STATUS,
+  };
+  const activeCount =
+    Object.values(active).filter(Boolean).length +
+    Object.values(optimisticFilters).filter((value) => value !== null).length;
+  const mark = (on: boolean) => (on ? ACTIVE_FILTER_CLASS : undefined);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -107,7 +112,7 @@ export function ReferenceToolbar({ section, query, status, filters = [] }: Refer
           onChange={(event) => search.setInput(event.target.value)}
           placeholder={t(`${section}.list.searchPlaceholder`)}
           aria-label={t(`${section}.list.searchLabel`)}
-          className="pl-8"
+          className={cn("pl-8", mark(active.search))}
         />
       </div>
 
@@ -117,7 +122,10 @@ export function ReferenceToolbar({ section, query, status, filters = [] }: Refer
           value={optimisticFilters[filter.param] ?? ALL}
           onValueChange={(value) => changeFilter(filter, value)}
         >
-          <SelectTrigger className="w-44" aria-label={filter.label}>
+          <SelectTrigger
+            className={cn("w-44", mark(optimisticFilters[filter.param] != null))}
+            aria-label={filter.label}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -132,7 +140,10 @@ export function ReferenceToolbar({ section, query, status, filters = [] }: Refer
       ))}
 
       <Select value={optimisticStatus} onValueChange={changeStatus}>
-        <SelectTrigger className="w-44" aria-label={t("referenceBooks.list.statusFilter")}>
+        <SelectTrigger
+          className={cn("w-44", mark(active.status))}
+          aria-label={t("referenceBooks.list.statusFilter")}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -144,11 +155,12 @@ export function ReferenceToolbar({ section, query, status, filters = [] }: Refer
         </SelectContent>
       </Select>
 
-      {hasFilters && (
-        <Button variant="ghost" onClick={resetFilters}>
-          <XIcon aria-hidden />
-          {t("referenceBooks.list.resetFilters")}
-        </Button>
+      {activeCount > 0 && (
+        <ResetFiltersButton
+          label={t("referenceBooks.list.resetFilters")}
+          count={activeCount}
+          onClick={resetFilters}
+        />
       )}
     </div>
   );
