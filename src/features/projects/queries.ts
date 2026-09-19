@@ -207,6 +207,16 @@ export async function listProjects(
   return { rows, rowCount };
 }
 
+/** How many projects listProjectsForExport() reads with these parameters. */
+export async function countProjectsForExport(
+  actor: SessionUser,
+  params: ProjectsListParams,
+): Promise<number> {
+  requirePermission(actor, "projects.export");
+
+  return db.project.count({ where: projectsWhere(params, projectAccess(actor)) });
+}
+
 /** Every project the registry shows with these parameters, in its order, on all of its pages. */
 export async function listProjectsForExport(
   actor: SessionUser,

@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, CalendarRangeIcon } from "lucide-react";
+import { ArrowLeftIcon, ListFilterIcon } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -27,14 +27,14 @@ export default async function PrintPage({ params, searchParams }: PrintPageProps
   const resolvedSearchParams = await searchParams;
   const backHref = listHref(report.path, resolvedSearchParams);
 
-  const refusal = report.checkParams?.(resolvedSearchParams);
-  if (refusal) {
+  const prepared = await prepareExport(viewer, report, "print", resolvedSearchParams);
+  if ("refusal" in prepared) {
     const t = await getTranslations();
     return (
       <StatusMessage
-        icon={CalendarRangeIcon}
+        icon={ListFilterIcon}
         title={t("export.unavailable")}
-        description={t(refusal.error, refusal.errorValues)}
+        description={t(prepared.refusal.error, prepared.refusal.errorValues)}
         className="min-h-svh"
       >
         <Button variant="outline" asChild>
@@ -47,9 +47,8 @@ export default async function PrintPage({ params, searchParams }: PrintPageProps
     );
   }
 
-  const content = await prepareExport(viewer, report, resolvedSearchParams);
   // Printing hands the data over on paper just as a file does, so it is logged as an export too.
-  await logExport(viewer, report, "print", content);
+  await logExport(viewer, report, "print", prepared.content);
 
-  return <PrintReport content={content} backHref={backHref} />;
+  return <PrintReport content={prepared.content} backHref={backHref} />;
 }

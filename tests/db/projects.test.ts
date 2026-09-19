@@ -5,10 +5,9 @@ import { parseProjectsListParams, type ProjectsListParams } from "@/features/pro
 import { listProjects, listProjectsForExport } from "@/features/projects/queries";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { prepareExport } from "@/lib/export/service";
 import { PermissionDeniedError } from "@/lib/permissions";
 
-import { createUser } from "./helpers";
+import { createUser, exportDocument } from "./helpers";
 
 let sequence = 0;
 
@@ -196,7 +195,7 @@ describe("the projects export", () => {
       await expect(listProjectsForExport(actor, params())).rejects.toBeInstanceOf(
         PermissionDeniedError,
       );
-      await expect(prepareExport(actor, projectsExport, {})).rejects.toBeInstanceOf(
+      await expect(exportDocument(actor, projectsExport, {})).rejects.toBeInstanceOf(
         PermissionDeniedError,
       );
     }
@@ -215,7 +214,7 @@ describe("the projects export", () => {
       closedAt: new Date("2026-05-01T10:00:00Z"),
     });
 
-    const content = await prepareExport(manager, projectsExport, {});
+    const content = await exportDocument(manager, projectsExport, {});
     expect(content.columns.map((column) => column.key)).toEqual([
       "number",
       "name",
@@ -240,7 +239,7 @@ describe("the projects export", () => {
       budgetHours: 40,
     });
 
-    const all = await prepareExport(manager, projectsExport, { status: "all" });
+    const all = await exportDocument(manager, projectsExport, { status: "all" });
     expect(all.rows).toHaveLength(2);
   });
 });

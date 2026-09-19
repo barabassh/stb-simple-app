@@ -3,9 +3,11 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { resetFiltersHref } from "@/components/data-table/search-params";
+import { ExportButtons } from "@/components/export/export-buttons";
 import { Button } from "@/components/ui/button";
 import { hideableReportColumns, reportAccess, reportColumns } from "@/features/reports/columns";
 import { ReportsTable } from "@/features/reports/components/reports-table";
+import { reportsExport } from "@/features/reports/export";
 import { ReportsToolbar } from "@/features/reports/components/reports-toolbar";
 import {
   DEFAULT_REPORT_STATUS,
@@ -61,14 +63,19 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold sm:text-2xl">{t("reports.list.title")}</h1>
-        {canCreate && (
-          <Button asChild>
-            <Link href="/reports/new">
-              <PlusIcon aria-hidden />
-              {t("reports.list.create")}
-            </Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {can(viewer, reportsExport.permission) && (
+            <ExportButtons report={reportsExport} searchParams={resolvedSearchParams} />
+          )}
+          {canCreate && (
+            <Button asChild>
+              <Link href="/reports/new">
+                <PlusIcon aria-hidden />
+                {t("reports.list.create")}
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {block && (

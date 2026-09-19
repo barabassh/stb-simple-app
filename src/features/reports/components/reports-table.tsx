@@ -37,7 +37,7 @@ import {
 import type { ReportListItem, ReportTableSettings } from "../queries";
 import { availableReportActions } from "../report-actions";
 import { formatDuration, formatHours, formatTime, weekdayOf } from "../time";
-import { ReportStatusBadge } from "./report-status-badge";
+import { ReportStatusIcon } from "./report-status-badge";
 
 const columnHelper = createColumnHelper<DataTableFeatures, ReportListItem>();
 
@@ -168,6 +168,14 @@ export function ReportsTable({
               }),
             ]
           : []),
+        columnHelper.accessor("status", {
+          ...width("status"),
+          enableSorting: false,
+          header: t("columns.status"),
+          cell: ({ row }) => (
+            <ReportStatusIcon status={row.original.status} unapproval={row.original.unapproval} />
+          ),
+        }),
         columnHelper.accessor("workDate", {
           ...width("workDate"),
           header: t("columns.workDate"),
@@ -240,10 +248,10 @@ export function ReportsTable({
           ...width("workDescription"),
           enableSorting: false,
           header: t("columns.workDescription"),
+          // The whole text, on as many lines as it takes, with the line breaks typed in the form
+          // (docs/ТЗ.md, 7.9).
           cell: ({ getValue }) => (
-            <div className="truncate" title={getValue()}>
-              {getValue()}
-            </div>
+            <div className="break-words whitespace-pre-line">{getValue()}</div>
           ),
         }),
         columnHelper.display({
@@ -271,14 +279,6 @@ export function ReportsTable({
           enableSorting: false,
           header: t("columns.mileageKm"),
           cell: ({ getValue }) => <div className="text-right">{formatNumber(getValue())}</div>,
-        }),
-        columnHelper.accessor("status", {
-          ...width("status"),
-          enableSorting: false,
-          header: t("columns.status"),
-          cell: ({ row }) => (
-            <ReportStatusBadge status={row.original.status} unapproval={row.original.unapproval} />
-          ),
         }),
         ...(show("updatedAt")
           ? [

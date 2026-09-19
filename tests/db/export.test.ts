@@ -6,10 +6,10 @@ import { usersExport } from "@/features/users/export";
 import { parseUsersListParams } from "@/features/users/list-params";
 import { listUsers, listUsersForExport } from "@/features/users/queries";
 import type { Role } from "@/generated/prisma/enums";
-import { logExport, prepareExport } from "@/lib/export/service";
+import { logExport } from "@/lib/export/service";
 import { PermissionDeniedError } from "@/lib/permissions";
 
-import { auditEntries, createUser } from "./helpers";
+import { auditEntries, createUser, exportDocument } from "./helpers";
 import { TEST_IP, TEST_USER_AGENT } from "./request";
 import { t } from "./translations";
 
@@ -77,7 +77,7 @@ describe("an export", () => {
     await createUser({ login: "admin", role: "ADMIN" });
     await createUser({ login: "deputy", role: "ADMIN" });
 
-    const content = await prepareExport(manager, usersExport, { role: "ADMIN" });
+    const content = await exportDocument(manager, usersExport, { role: "ADMIN" }, "pdf");
     await logExport(manager, usersExport, "pdf", content);
 
     expect(content.fileName).toMatch(/^users_\d{2}\.\d{2}\.\d{4}$/);

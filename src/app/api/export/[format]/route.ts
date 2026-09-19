@@ -34,17 +34,18 @@ export async function GET(request: NextRequest, { params }: ExportRouteContext) 
   if (!format || !report) return new Response(null, { status: 404 });
   // A link can be forwarded to anyone, so a user without access gets the page a section gives.
   if (!can(viewer, report.permission)) redirect(FORBIDDEN_PATH);
-  const refusal = report.checkParams?.(searchParams);
-  if (refusal) {
-    // The buttons are not offered for such parameters, so only an edited link gets here.
+
+  const prepared = await prepareExport(viewer, report, format, searchParams);
+  if ("refusal" in prepared) {
+    // The buttons are not offered for such parameters, so only an edited or an old link gets here.
     const t = await getTranslations();
-    return new Response(t(refusal.error, refusal.errorValues), {
+    return new Response(t(prepared.refusal.error, prepared.refusal.errorValues), {
       status: 400,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
 
-  const content = await prepareExport(viewer, report, searchParams);
+  const { content } = prepared;
   const file = await FILE_TYPES[format].render(content);
   await logExport(viewer, report, format, content);
 

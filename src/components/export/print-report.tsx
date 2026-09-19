@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   formatExportValue,
   isNumericFormat,
+  totalsRow,
   type ExportColumnFormat,
   type ExportDocument,
 } from "@/lib/export";
@@ -33,6 +34,7 @@ type PrintReportProps = {
 export async function PrintReport({ content, backHref }: PrintReportProps) {
   const t = await getTranslations("export");
   const { title, columns, rows, labels } = content;
+  const totals = totalsRow(content);
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6 print:p-0">
@@ -97,6 +99,18 @@ export async function PrintReport({ content, backHref }: PrintReportProps) {
               ))
             )}
           </tbody>
+          {totals && (
+            // In <tbody> rather than <tfoot>, which a browser would repeat at the foot of every sheet.
+            <tbody>
+              <tr className="break-inside-avoid font-semibold">
+                {columns.map((column) => (
+                  <td key={column.key} className={cellClassName(column.format)}>
+                    {formatExportValue(totals[column.key], column.format)}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          )}
         </table>
       </div>
     </div>

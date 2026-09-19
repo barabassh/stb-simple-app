@@ -90,6 +90,16 @@ export async function listCustomers(
   return { rows, rowCount };
 }
 
+/** How many customers listCustomersForExport() reads with these parameters. */
+export async function countCustomersForExport(
+  actor: SessionUser,
+  params: CustomersListParams,
+): Promise<number> {
+  requirePermission(actor, "customers.export");
+
+  return db.customer.count({ where: customersWhere(params) });
+}
+
 /** Every customer the registry shows with these parameters, in its order, on all of its pages. */
 export async function listCustomersForExport(
   actor: SessionUser,

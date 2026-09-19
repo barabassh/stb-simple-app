@@ -1,7 +1,10 @@
+import type { SearchParamsInput } from "@/components/data-table/search-params";
 import type { Role } from "@/generated/prisma/enums";
 import { hashPassword } from "@/lib/auth/password";
-import { createSession } from "@/lib/auth/session";
+import { createSession, type SessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import type { ExportDocument, ExportFormat, ExportReport } from "@/lib/export";
+import { prepareExport } from "@/lib/export/service";
 
 import { request } from "./request";
 
@@ -87,4 +90,16 @@ export async function auditLogText(): Promise<string> {
 
 export function activeSessions(userId: string) {
   return db.session.findMany({ where: { userId, revokedAt: null } });
+}
+
+/** The document of an export the test expects to be made; a refusal fails the test. */
+export async function exportDocument(
+  actor: SessionUser,
+  report: ExportReport,
+  searchParams: SearchParamsInput,
+  format: ExportFormat = "xlsx",
+): Promise<ExportDocument> {
+  const prepared = await prepareExport(actor, report, format, searchParams);
+  if ("refusal" in prepared) throw new Error(`The export was refused: ${prepared.refusal.error}`);
+  return prepared.content;
 }

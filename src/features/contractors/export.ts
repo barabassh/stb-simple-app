@@ -4,7 +4,7 @@ import { referenceStatusName } from "@/components/reference-book/status-name";
 import { defineExportReport } from "@/lib/export";
 
 import { parseContractorsListParams } from "./list-params";
-import { listContractorsForExport } from "./queries";
+import { countContractorsForExport, listContractorsForExport } from "./queries";
 
 type ContractorExportRow = {
   name: string;
@@ -22,6 +22,20 @@ export const contractorsExport = defineExportReport<ContractorExportRow>({
   path: "/contractors",
   permission: "contractors.export",
   entity: "Contractor",
+  count: (actor, searchParams) =>
+    countContractorsForExport(actor, parseContractorsListParams(searchParams)),
+  async columns() {
+    const t = await getTranslations("contractors");
+    return [
+      { key: "name", header: t("columns.name") },
+      { key: "kvkNumber", header: t("columns.kvkNumber") },
+      { key: "contactPerson", header: t("columns.contactPerson") },
+      { key: "phone", header: t("columns.phone") },
+      { key: "email", header: t("columns.email") },
+      { key: "city", header: t("columns.city") },
+      { key: "status", header: t("columns.status") },
+    ];
+  },
   async load(actor, searchParams) {
     const [t, tAll, contractors] = await Promise.all([
       getTranslations("contractors"),
@@ -31,15 +45,6 @@ export const contractorsExport = defineExportReport<ContractorExportRow>({
 
     return {
       title: t("export.title"),
-      columns: [
-        { key: "name", header: t("columns.name") },
-        { key: "kvkNumber", header: t("columns.kvkNumber") },
-        { key: "contactPerson", header: t("columns.contactPerson") },
-        { key: "phone", header: t("columns.phone") },
-        { key: "email", header: t("columns.email") },
-        { key: "city", header: t("columns.city") },
-        { key: "status", header: t("columns.status") },
-      ],
       rows: contractors.map((contractor) => ({
         name: contractor.name,
         kvkNumber: contractor.kvkNumber,

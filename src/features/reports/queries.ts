@@ -296,18 +296,24 @@ async function findReports(
   table: ReportsListParams["table"],
   page?: Page,
 ): Promise<ReportListItem[]> {
+  const rows = await db.workReport.findMany({
+    where,
+    select: listSelect,
+    orderBy: reportsOrderBy(access, table),
+    ...page,
+  });
+  return rows.map((row) => toListItem(row, access));
+}
+
+function reportsOrderBy(
+  access: ReportAccess,
+  table: ReportsListParams["table"],
+): Prisma.WorkReportOrderByWithRelationInput[] {
   const { column, order } =
     table.sort && reportSortColumns(access).includes(table.sort.column)
       ? table.sort
       : DEFAULT_REPORT_SORT;
-
-  const rows = await db.workReport.findMany({
-    where,
-    select: listSelect,
-    orderBy: ORDER_BY[column](order),
-    ...page,
-  });
-  return rows.map((row) => toListItem(row, access));
+  return ORDER_BY[column](order);
 }
 
 export type ReportTotals = {
@@ -378,6 +384,118 @@ export async function listReports(
   ]);
 
   return { rows, rowCount: totals.count, totals };
+}
+
+/** How many reports listReportsForExport() reads with these parameters. */
+export async function countReportsForExport(
+  actor: SessionUser,
+  params: ReportsListParams,
+): Promise<number> {
+  requirePermission(actor, "reports.export");
+
+  return db.workReport.count({ where: reportsWhere(actor, params) });
+}
+
+const exportSelect = {
+  workDate: true,
+  user: { select: { fullName: true, nickname: true } },
+  contractor: { select: { name: true } },
+  project: { select: { number: true, name: true } },
+  workDescription: true,
+  startMinute: true,
+  endMinute: true,
+  lunchMinutes: true,
+  mileageKm: true,
+  status: true,
+  approvedAt: true,
+  approvedBy: { select: { fullName: true } },
+} as const satisfies Prisma.WorkReportSelect;
+
+export type ReportExportItem = {
+  workDate: Date;
+  worker: { fullName: string; nickname: string };
+  /** Null for the company's own employee. */
+  organization: string | null;
+  project: { number: string; name: string };
+  workDescription: string;
+  startMinute: number;
+  endMinute: number;
+  lunchMinutes: number;
+  workedMinutes: number;
+  mileageKm: number;
+  status: WorkReportStatus;
+  /** Who approved the report and when; null for one not approved. */
+  approval: { at: Date; by: string | null } | null;
+};
+
+/** The names of the filters the timesheet's title lists; null where a filter is not set. */
+export type ReportFilterNames = {
+  project: { number: string; name: string } | null;
+  /** A contractor's name; OUR_COMPANY is named by the caller. */
+  organization: string | null;
+  /** The worker's nickname. */
+  worker: string | null;
+};
+
+/**
+ * The timesheet (docs/ТЗ.md, 7.12): every report the registry shows with these parameters, in its
+ * order, on all of its pages, with the totals summed by the database as over the registry.
+ */
+export async function listReportsForExport(
+  actor: SessionUser,
+  params: ReportsListParams,
+): Promise<{ rows: ReportExportItem[]; totals: ReportTotals; filterNames: ReportFilterNames }> {
+  requirePermission(actor, "reports.export");
+
+  const where = reportsWhere(actor, params);
+  const contractorId =
+    params.organization && params.organization !== OUR_COMPANY ? params.organization : null;
+  const [rows, totals, project, contractor, worker] = await Promise.all([
+    db.workReport.findMany({
+      where,
+      select: exportSelect,
+      orderBy: reportsOrderBy(reportAccess(actor), params.table),
+    }),
+    reportTotals(where),
+    params.projectId
+      ? db.project.findUnique({
+          where: { id: params.projectId },
+          select: { number: true, name: true },
+        })
+      : null,
+    contractorId
+      ? db.contractor.findUnique({ where: { id: contractorId }, select: { name: true } })
+      : null,
+    params.workerId
+      ? db.user.findUnique({ where: { id: params.workerId }, select: { nickname: true } })
+      : null,
+  ]);
+
+  return {
+    rows: rows.map((row) => ({
+      workDate: row.workDate,
+      worker: row.user,
+      organization: row.contractor?.name ?? null,
+      project: row.project,
+      workDescription: row.workDescription,
+      startMinute: row.startMinute,
+      endMinute: row.endMinute,
+      lunchMinutes: row.lunchMinutes,
+      workedMinutes: workedMinutes(row),
+      mileageKm: row.mileageKm,
+      status: row.status,
+      approval:
+        row.status === "APPROVED" && row.approvedAt
+          ? { at: row.approvedAt, by: row.approvedBy?.fullName ?? null }
+          : null,
+    })),
+    totals,
+    filterNames: {
+      project,
+      organization: contractor?.name ?? null,
+      worker: worker?.nickname ?? null,
+    },
+  };
 }
 
 export type ReportFilterOptions = {

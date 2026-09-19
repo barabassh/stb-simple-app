@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { defineExportReport } from "@/lib/export";
 
 import { parseUsersListParams } from "./list-params";
-import { listUsersForExport } from "./queries";
+import { countUsersForExport, listUsersForExport } from "./queries";
 
 type UserExportRow = {
   login: string;
@@ -22,6 +22,20 @@ export const usersExport = defineExportReport<UserExportRow>({
   path: "/users",
   permission: "users.export",
   entity: "User",
+  count: (actor, searchParams) => countUsersForExport(actor, parseUsersListParams(searchParams)),
+  async columns() {
+    const t = await getTranslations("users");
+    return [
+      { key: "login", header: t("columns.login") },
+      { key: "fullName", header: t("columns.fullName") },
+      { key: "nickname", header: t("columns.nickname") },
+      { key: "position", header: t("columns.position") },
+      { key: "role", header: t("columns.role") },
+      { key: "status", header: t("columns.status") },
+      { key: "lastLoginAt", header: t("columns.lastLoginAt"), format: "datetime" },
+      { key: "createdAt", header: t("columns.createdAt"), format: "date" },
+    ];
+  },
   async load(actor, searchParams) {
     const [t, users] = await Promise.all([
       getTranslations("users"),
@@ -30,16 +44,6 @@ export const usersExport = defineExportReport<UserExportRow>({
 
     return {
       title: t("export.title"),
-      columns: [
-        { key: "login", header: t("columns.login") },
-        { key: "fullName", header: t("columns.fullName") },
-        { key: "nickname", header: t("columns.nickname") },
-        { key: "position", header: t("columns.position") },
-        { key: "role", header: t("columns.role") },
-        { key: "status", header: t("columns.status") },
-        { key: "lastLoginAt", header: t("columns.lastLoginAt"), format: "datetime" },
-        { key: "createdAt", header: t("columns.createdAt"), format: "date" },
-      ],
       rows: users.map((user) => ({
         login: user.login,
         fullName: user.fullName,

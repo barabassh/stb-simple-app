@@ -5,7 +5,7 @@ import { formatAddress } from "@/lib/nl/address";
 
 import { projectAccess, projectColumns, type ProjectColumn } from "./columns";
 import { parseProjectsListParams } from "./list-params";
-import { listProjectsForExport, type ProjectListItem } from "./queries";
+import { countProjectsForExport, listProjectsForExport, type ProjectListItem } from "./queries";
 
 type ProjectExportRow = Record<ProjectColumn, ExportRow[string]>;
 
@@ -28,6 +28,19 @@ export const projectsExport = defineExportReport<ProjectExportRow>({
   path: "/projects",
   permission: "projects.export",
   entity: "Project",
+  count: (actor, searchParams) =>
+    countProjectsForExport(actor, parseProjectsListParams(searchParams, projectAccess(actor))),
+  async columns(actor) {
+    const t = await getTranslations("projects");
+    const header = (column: ProjectColumn) =>
+      t.has(`export.columns.${column}`) ? t(`export.columns.${column}`) : t(`columns.${column}`);
+
+    return projectColumns(projectAccess(actor), "export").map((column) => ({
+      key: column,
+      header: header(column),
+      format: FORMATS[column],
+    }));
+  },
   async load(actor, searchParams) {
     const access = projectAccess(actor);
     const [t, locale, projects] = await Promise.all([
@@ -35,9 +48,6 @@ export const projectsExport = defineExportReport<ProjectExportRow>({
       getLocale(),
       listProjectsForExport(actor, parseProjectsListParams(searchParams, access)),
     ]);
-
-    const header = (column: ProjectColumn) =>
-      t.has(`export.columns.${column}`) ? t(`export.columns.${column}`) : t(`columns.${column}`);
 
     const row = (project: ProjectListItem): ProjectExportRow => ({
       number: project.number,
@@ -56,11 +66,6 @@ export const projectsExport = defineExportReport<ProjectExportRow>({
 
     return {
       title: t("export.title"),
-      columns: projectColumns(access, "export").map((column) => ({
-        key: column,
-        header: header(column),
-        format: FORMATS[column],
-      })),
       rows: projects.map(row),
     };
   },

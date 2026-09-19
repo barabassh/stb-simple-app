@@ -5,7 +5,7 @@ import { defineExportReport } from "@/lib/export";
 import { describeUserAgent } from "@/lib/user-agent";
 
 import { parseAuditListParams } from "./list-params";
-import { listAuditLogsForExport } from "./queries";
+import { countAuditLogsForExport, listAuditLogsForExport } from "./queries";
 import { checkAuditExportPeriod } from "./schemas";
 
 type AuditExportRow = {
@@ -29,8 +29,24 @@ export const auditExport = defineExportReport<AuditExportRow>({
   path: "/audit",
   permission: "audit.export",
   entity: "AuditLog",
+  count: (actor, searchParams) =>
+    countAuditLogsForExport(actor, parseAuditListParams(searchParams)),
   checkParams(searchParams) {
     return checkAuditExportPeriod(parseAuditListParams(searchParams));
+  },
+  async columns() {
+    const t = await getTranslations("audit");
+    return [
+      { key: "at", header: t("columns.at"), format: "datetime" },
+      { key: "actorLogin", header: t("columns.actor") },
+      { key: "actorName", header: t("export.actorName") },
+      { key: "action", header: t("columns.action") },
+      { key: "entity", header: t("columns.entity") },
+      { key: "summary", header: t("columns.summary") },
+      { key: "changes", header: t("details.changes") },
+      { key: "ip", header: t("details.ip") },
+      { key: "browser", header: t("details.browser") },
+    ];
   },
   async load(actor, searchParams) {
     const [t, entries] = await Promise.all([
@@ -45,17 +61,6 @@ export const auditExport = defineExportReport<AuditExportRow>({
 
     return {
       title: t("export.title"),
-      columns: [
-        { key: "at", header: t("columns.at"), format: "datetime" },
-        { key: "actorLogin", header: t("columns.actor") },
-        { key: "actorName", header: t("export.actorName") },
-        { key: "action", header: t("columns.action") },
-        { key: "entity", header: t("columns.entity") },
-        { key: "summary", header: t("columns.summary") },
-        { key: "changes", header: t("details.changes") },
-        { key: "ip", header: t("details.ip") },
-        { key: "browser", header: t("details.browser") },
-      ],
       rows: entries.map((entry) => ({
         at: entry.at,
         actorLogin: entry.actorLogin,

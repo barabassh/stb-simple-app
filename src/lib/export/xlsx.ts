@@ -4,8 +4,10 @@ import { toDisplayWallClock } from "@/lib/format";
 
 import {
   exportColumnWidths,
+  totalsRow,
   type ExportColumnFormat,
   type ExportDocument,
+  type ExportRow,
   type ExportValue,
 } from ".";
 
@@ -35,7 +37,7 @@ function toCell(
     return { value: new Date(day), numFmt: DATE_FORMAT };
   }
   if (typeof value === "number") {
-    const decimal = format === "money" || !Number.isInteger(value);
+    const decimal = format === "money" || format === "decimal" || !Number.isInteger(value);
     return { value, numFmt: decimal ? DECIMAL_FORMAT : INTEGER_FORMAT };
   }
   return { value };
@@ -57,7 +59,7 @@ export async function renderXlsx(content: ExportDocument): Promise<Buffer> {
   }));
   sheet.getRow(1).font = { bold: true };
 
-  for (const row of content.rows) {
+  const addRow = (row: Partial<ExportRow>) => {
     const sheetRow = sheet.addRow([]);
     content.columns.forEach((column, index) => {
       const cell = sheetRow.getCell(index + 1);
@@ -67,7 +69,12 @@ export async function renderXlsx(content: ExportDocument): Promise<Buffer> {
       // Multi-line values, such as the changes of an audit entry, keep their lines.
       cell.alignment = { vertical: "top", wrapText: true };
     });
-  }
+    return sheetRow;
+  };
+
+  content.rows.forEach(addRow);
+  const totals = totalsRow(content);
+  if (totals) addRow(totals).font = { bold: true };
 
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

@@ -1,7 +1,13 @@
 import { expect, messages, signIn, test, text, uniqueLogin, waitForHydration } from "./fixtures";
 
-test("an administrator creates a user who then signs in", async ({ page, createUser }) => {
+test("an administrator creates a user who then signs in", async ({
+  page,
+  createUser,
+  createContractor,
+}) => {
   const admin = await createUser({ role: "ADMIN" });
+  // A contractor account is saved only with its organisation (docs/ТЗ.md, 6.5).
+  const organisation = await createContractor();
   const created = {
     login: uniqueLogin("created"),
     password: "Created2026pass",
@@ -22,6 +28,11 @@ test("an administrator creates a user who then signs in", async ({ page, createU
   await page.getByLabel(messages.users.fields.fullName, { exact: true }).fill(created.fullName);
   await page.getByRole("combobox", { name: messages.users.fields.role }).click();
   await page.getByRole("option", { name: messages.users.roles.CONTRACTOR }).click();
+  await page.getByRole("combobox", { name: messages.users.fields.contractor, exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: messages.users.form.contractorSearch })
+    .fill(organisation.name);
+  await page.getByRole("option", { name: organisation.name, exact: true }).click();
   await submit.click();
 
   await expect(page.getByRole("heading", { name: created.fullName })).toBeVisible();

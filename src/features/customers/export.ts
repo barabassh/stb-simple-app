@@ -4,7 +4,7 @@ import { referenceStatusName } from "@/components/reference-book/status-name";
 import { defineExportReport } from "@/lib/export";
 
 import { parseCustomersListParams } from "./list-params";
-import { listCustomersForExport } from "./queries";
+import { countCustomersForExport, listCustomersForExport } from "./queries";
 
 type CustomerExportRow = {
   name: string;
@@ -23,6 +23,21 @@ export const customersExport = defineExportReport<CustomerExportRow>({
   path: "/customers",
   permission: "customers.export",
   entity: "Customer",
+  count: (actor, searchParams) =>
+    countCustomersForExport(actor, parseCustomersListParams(searchParams)),
+  async columns() {
+    const t = await getTranslations("customers");
+    return [
+      { key: "name", header: t("columns.name") },
+      { key: "type", header: t("columns.type") },
+      { key: "kvkNumber", header: t("columns.kvkNumber") },
+      { key: "contactPerson", header: t("columns.contactPerson") },
+      { key: "phone", header: t("columns.phone") },
+      { key: "email", header: t("columns.email") },
+      { key: "city", header: t("columns.city") },
+      { key: "status", header: t("columns.status") },
+    ];
+  },
   async load(actor, searchParams) {
     const [t, tAll, customers] = await Promise.all([
       getTranslations("customers"),
@@ -32,16 +47,6 @@ export const customersExport = defineExportReport<CustomerExportRow>({
 
     return {
       title: t("export.title"),
-      columns: [
-        { key: "name", header: t("columns.name") },
-        { key: "type", header: t("columns.type") },
-        { key: "kvkNumber", header: t("columns.kvkNumber") },
-        { key: "contactPerson", header: t("columns.contactPerson") },
-        { key: "phone", header: t("columns.phone") },
-        { key: "email", header: t("columns.email") },
-        { key: "city", header: t("columns.city") },
-        { key: "status", header: t("columns.status") },
-      ],
       rows: customers.map((customer) => ({
         name: customer.name,
         type: t(`types.${customer.type}`),

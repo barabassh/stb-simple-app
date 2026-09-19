@@ -152,7 +152,7 @@ test("an employee sees a project without its budget and without buttons to edit 
     await expect(page.getByRole("columnheader", { name: column })).toHaveCount(0);
   }
   for (const name of [messages.export.xlsx, messages.export.pdf, messages.export.print]) {
-    await expect(page.getByRole("link", { name })).toHaveCount(0);
+    await expect(page.getByRole("button", { name })).toHaveCount(0);
   }
   await expect(page.getByRole("link", { name: projects.list.create })).toHaveCount(0);
 

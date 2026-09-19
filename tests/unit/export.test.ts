@@ -3,8 +3,21 @@ import { inflateSync } from "node:zlib";
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 
-import { exportColumnWidths, formatExportValue, type ExportDocument } from "@/lib/export";
-import { exportFileHref, listHref, printHref } from "@/lib/export/links";
+import {
+  chooseColumns,
+  exportColumnWidths,
+  formatExportValue,
+  totalsRow,
+  type ExportDocument,
+} from "@/lib/export";
+import {
+  exportFileHref,
+  listHref,
+  printHref,
+  readExportColumns,
+  withExportColumns,
+} from "@/lib/export/links";
+import { orderColumns } from "@/features/export/queries";
 import { renderPdf } from "@/lib/export/pdf";
 import { renderXlsx } from "@/lib/export/xlsx";
 
@@ -40,6 +53,7 @@ const content: ExportDocument = {
     generatedAt: "Дата выгрузки: 14.09.2026 12:00",
     author: "Автор: Администратор системы (admin)",
     empty: "Нет данных",
+    totals: "Итого",
     page: (page, pages) => `Страница ${page} из ${pages}`,
   },
 };
@@ -171,5 +185,100 @@ describe("renderPdf", () => {
     });
 
     expect([...embeddedCharacters(pdf)]).toEqual(expect.arrayContaining(["C", "I", "P"]));
+  });
+});
+
+describe("the totals row", () => {
+  const timesheet: ExportDocument = {
+    ...content,
+    title: "Timesheet",
+    columns: [
+      { key: "day", header: "Day", format: "date" },
+      { key: "worker", header: "Worker" },
+      { key: "hours", header: "Hours", format: "decimal" },
+      { key: "km", header: "Km", format: "number" },
+    ],
+    rows: [
+      { day: CREATED_AT, worker: "Jan", hours: 490 / 60, km: 42 },
+      { day: LAST_LOGIN_AT, worker: "Piet", hours: 4, km: 1200 },
+    ],
+    totals: { hours: 730 / 60, km: 1242 },
+    labels: {
+      ...content.labels,
+      generatedAt: "14.09.2026 12:00",
+      author: "admin",
+      page: (page, pages) => `${page} / ${pages}`,
+    },
+  };
+
+  it("puts the label into the first column unless the report sums that column", () => {
+    expect(totalsRow(timesheet)).toEqual({ day: "Итого", hours: 730 / 60, km: 1242 });
+    expect(totalsRow({ ...timesheet, totals: undefined })).toBeNull();
+    // Put first, a summed column keeps its sum, and the label moves to the next one without.
+    expect(
+      totalsRow({
+        ...timesheet,
+        columns: [timesheet.columns[2], ...timesheet.columns.slice(0, 2)],
+      }),
+    ).toEqual({ hours: 730 / 60, day: "Итого", km: 1242 });
+    expect(formatExportValue(730 / 60, "decimal")).toBe("12,17");
+    expect(formatExportValue(4, "decimal")).toBe("4,00");
+  });
+
+  it("is the last row of the spreadsheet, in bold, with numbers as numbers", async () => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load((await renderXlsx(timesheet)) as unknown as ExcelJS.Buffer);
+    const [sheet] = workbook.worksheets;
+
+    expect(sheet.rowCount).toBe(4);
+    expect(sheet.getRow(3).getCell(3)).toMatchObject({ value: 4, numFmt: "#,##0.00" });
+    const totals = sheet.getRow(4);
+    expect(totals.getCell(1).value).toBe("Итого");
+    expect(totals.getCell(2).value).toBeNull();
+    expect(totals.getCell(3)).toMatchObject({ value: 730 / 60, numFmt: "#,##0.00" });
+    expect(totals.getCell(4)).toMatchObject({ value: 1242, numFmt: "#,##0" });
+    expect(totals.font).toMatchObject({ bold: true });
+  });
+
+  it("is written into the PDF", async () => {
+    // The label is the only text with these letters, so its glyphs show that it was written.
+    const labelLetters = ["И", "т", "г"];
+    const withTotals = embeddedCharacters(await renderPdf(timesheet));
+    const without = embeddedCharacters(await renderPdf({ ...timesheet, totals: undefined }));
+
+    expect([...withTotals]).toEqual(expect.arrayContaining(labelLetters));
+    expect(labelLetters.filter((letter) => without.has(letter))).toEqual([]);
+  });
+});
+
+describe("the chosen columns", () => {
+  const columns = [{ key: "login" }, { key: "fullName" }, { key: "role" }];
+
+  it("keep the order of the link and fall back to every column", () => {
+    expect(chooseColumns(columns, ["role", "login", "role"])).toEqual([
+      { key: "role" },
+      { key: "login" },
+    ]);
+    expect(chooseColumns(columns, null)).toEqual(columns);
+    expect(chooseColumns(columns, ["passwordHash"])).toEqual(columns);
+  });
+
+  it("travel in the link and are left out of the way back to the list", () => {
+    const href = withExportColumns("/api/export/xlsx?report=users&q=iva", ["login", "role"]);
+    expect(href).toBe("/api/export/xlsx?report=users&q=iva&columns=login%2Crole");
+    expect(withExportColumns("/print/users", null)).toBe("/print/users");
+    expect(readExportColumns(new URLSearchParams(href.split("?")[1]))).toEqual(["login", "role"]);
+    expect(readExportColumns({})).toBeNull();
+    expect(listHref("/users", { q: "iva", columns: "login" })).toBe("/users?q=iva");
+    expect(printHref("users", { columns: "login" })).toBe("/print/users");
+  });
+});
+
+describe("orderColumns", () => {
+  it("keeps the saved order, drops what is gone and puts new columns last", () => {
+    expect(
+      orderColumns(["login", "fullName", "role", "status"], ["role", "gone", "login"]),
+    ).toEqual(["role", "login", "fullName", "status"]);
+    expect(orderColumns(["login", "role"], [])).toEqual(["login", "role"]);
   });
 });

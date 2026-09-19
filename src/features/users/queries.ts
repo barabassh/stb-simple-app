@@ -78,6 +78,16 @@ export async function listUsers(
   return { rows, rowCount };
 }
 
+/** How many users listUsersForExport() reads with these parameters. */
+export async function countUsersForExport(
+  actor: SessionUser,
+  params: UsersListParams,
+): Promise<number> {
+  requirePermission(actor, "users.export");
+
+  return db.user.count({ where: usersWhere(params) });
+}
+
 /** Every user the registry shows with these parameters, in its order, on all of its pages. */
 export async function listUsersForExport(
   actor: SessionUser,

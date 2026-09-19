@@ -21,7 +21,11 @@ import { getProject } from "@/features/projects/queries";
 import { reportAccess } from "@/features/reports/columns";
 import { ProjectParticipants } from "@/features/reports/components/project-participants";
 import { ProjectReports } from "@/features/reports/components/project-reports";
-import { hasReportFilters, parseReportsListParams } from "@/features/reports/list-params";
+import {
+  hasReportFilters,
+  parseReportsListParams,
+  REPORTS_SEARCH_PARAMS,
+} from "@/features/reports/list-params";
 import {
   getReportTableSettings,
   getOwnReportBlock,
@@ -43,6 +47,15 @@ const DETAILS_TAB = "details";
 const REPORTS_TAB = "reports";
 const PARTICIPANTS_TAB = "participants";
 const HISTORY_TAB = "history";
+
+/** The tab's filters without the tab, and the project the page fixes, as the registry reads them. */
+function projectExportSearchParams(
+  searchParams: Record<string, string | string[] | undefined>,
+  projectId: string,
+): Record<string, string | string[] | undefined> {
+  const filters = Object.entries(searchParams).filter(([key]) => key !== TAB_SEARCH_PARAM);
+  return { ...Object.fromEntries(filters), [REPORTS_SEARCH_PARAMS.project]: projectId };
+}
 
 // A contractor opens the card of a project in progress with projects.readActive: the details and
 // their own reports, without stamps or buttons (docs/ТЗ.md, 6.9, 7.11).
@@ -114,6 +127,11 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
                   (can(viewer, "reports.write") || (can(viewer, "reports.writeOwn") && !block))
                 }
                 block={inProgress ? block : null}
+                exportSearchParams={
+                  can(viewer, "reports.export")
+                    ? projectExportSearchParams(tabParams(REPORTS_TAB), project.id)
+                    : null
+                }
                 resetFiltersHref={
                   hasReportFilters(reportParams)
                     ? resetFiltersHref(`/projects/${project.id}`, resolvedSearchParams, [

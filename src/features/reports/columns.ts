@@ -13,7 +13,9 @@ export function reportAccess(user: Pick<SessionUser, "role">): ReportAccess {
   return { all: can(user, "reports.read") };
 }
 
+/** The status comes first, as an icon (docs/ТЗ.md, 7.9). */
 export const REPORT_COLUMNS = [
+  "status",
   "workDate",
   "weekday",
   "worker",
@@ -23,7 +25,6 @@ export const REPORT_COLUMNS = [
   "lunchMinutes",
   "hours",
   "mileageKm",
-  "status",
   "updatedAt",
 ] as const;
 export type ReportColumn = (typeof REPORT_COLUMNS)[number];
@@ -35,17 +36,19 @@ const ALL_ONLY: readonly ReportColumn[] = ["worker", "updatedAt"];
  * (docs/ТЗ.md, 7.9). The ticks and the actions keep their width.
  */
 export const REPORT_COLUMN_WIDTHS: Record<ReportColumn, number> = {
-  workDate: 120,
-  weekday: 130,
-  worker: 130,
-  project: 220,
-  workDescription: 260,
-  time: 120,
-  lunchMinutes: 80,
-  hours: 80,
+  // Measured by their content, so that every column of a manager fits from 1440px on; the project
+  // and the work wrap onto as many lines as they take.
+  status: 80,
+  workDate: 110,
+  weekday: 120,
+  worker: 100,
+  project: 150,
+  workDescription: 180,
+  time: 118,
+  lunchMinutes: 64,
+  hours: 64,
   mileageKm: 100,
-  status: 150,
-  updatedAt: 150,
+  updatedAt: 145,
 };
 export const MIN_COLUMN_WIDTH = 60;
 export const MAX_COLUMN_WIDTH = 800;

@@ -86,6 +86,16 @@ export async function listContractors(
   return { rows, rowCount };
 }
 
+/** How many contractors listContractorsForExport() reads with these parameters. */
+export async function countContractorsForExport(
+  actor: SessionUser,
+  params: ContractorsListParams,
+): Promise<number> {
+  requirePermission(actor, "contractors.export");
+
+  return db.contractor.count({ where: contractorsWhere(params) });
+}
+
 /** Every contractor the registry shows with these parameters, in its order, on all of its pages. */
 export async function listContractorsForExport(
   actor: SessionUser,

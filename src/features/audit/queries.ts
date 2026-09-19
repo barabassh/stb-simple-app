@@ -151,6 +151,16 @@ export async function listAuditLogs(actor: SessionUser, params: AuditListParams)
   return findAuditLogs(auditLogsWhere(params), params.table, actor);
 }
 
+/** How many entries listAuditLogsForExport() reads with these parameters. */
+export async function countAuditLogsForExport(
+  actor: SessionUser,
+  params: AuditListParams,
+): Promise<number> {
+  requirePermission(actor, "audit.export");
+
+  return db.auditLog.count({ where: auditLogsWhere(params) });
+}
+
 /** Every entry the journal shows with these parameters, in its order, on all of its pages. */
 export async function listAuditLogsForExport(
   actor: SessionUser,

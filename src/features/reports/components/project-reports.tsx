@@ -2,10 +2,13 @@ import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
+import type { SearchParamsInput } from "@/components/data-table/search-params";
+import { ExportButtons } from "@/components/export/export-buttons";
 import { Button } from "@/components/ui/button";
 import type { SessionUser } from "@/lib/auth/session";
 
 import { hideableReportColumns, reportColumns, type ReportAccess } from "../columns";
+import { reportsExport } from "../export";
 import { DEFAULT_REPORT_STATUS, type ReportsListParams } from "../list-params";
 import type {
   ReportTableSettings,
@@ -35,6 +38,11 @@ type ProjectReportsProps = {
   block: OwnReportBlock | null;
   /** Null when no filter is set; otherwise the link that resets them. */
   resetFiltersHref: string | null;
+  /**
+   * The registry's search parameters that select the rows of the tab, the project among them, for
+   * the timesheet of the project (docs/ТЗ.md, 7.12). Null without reports.export.
+   */
+  exportSearchParams: SearchParamsInput | null;
 };
 
 /**
@@ -54,6 +62,7 @@ export function ProjectReports({
   canCreate,
   block,
   resetFiltersHref,
+  exportSearchParams,
 }: ProjectReportsProps) {
   const t = useTranslations("reports");
   const tAll = useTranslations();
@@ -73,14 +82,21 @@ export function ProjectReports({
     <div className="flex flex-col gap-4">
       <ProjectReportTotals totals={totals} own={!access.all} />
 
-      {canCreate && (
-        <div>
-          <Button asChild>
-            <Link href={`/reports/new?${new URLSearchParams({ project: projectId })}`}>
-              <PlusIcon aria-hidden />
-              {t("list.create")}
-            </Link>
-          </Button>
+      {(canCreate || exportSearchParams) && (
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          {canCreate && (
+            <Button asChild>
+              <Link href={`/reports/new?${new URLSearchParams({ project: projectId })}`}>
+                <PlusIcon aria-hidden />
+                {t("list.create")}
+              </Link>
+            </Button>
+          )}
+          {exportSearchParams && (
+            <div className="sm:ml-auto">
+              <ExportButtons report={reportsExport} searchParams={exportSearchParams} />
+            </div>
+          )}
         </div>
       )}
       {block && (

@@ -477,7 +477,8 @@ model WorkReport {
 // without the stamps, the soft delete and the audit of the other models.
 model UserPreference {
   userId     String   @id
-  // { "reports": { "hiddenColumns": ["lunchMinutes"] } }, checked by Zod when read and written.
+  // { "reports": { "hiddenColumns": ["lunchMinutes"] }, "export:users": { "hiddenColumns": [...] } },
+  // checked by Zod when read and written.
   tables     Json     @default("{}")
   updatedAt  DateTime @updatedAt
 

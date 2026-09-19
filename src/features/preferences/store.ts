@@ -8,17 +8,27 @@ import { db } from "@/lib/db";
 // which check the permissions: this module is not a server action and cannot be called from a page.
 
 export const PREFERENCE_TABLES = ["reports"] as const;
-export type PreferenceTable = (typeof PREFERENCE_TABLES)[number];
+/**
+ * A table on screen, or the columns of an export ("export:users"): the columns the user left out
+ * of the file last time, and their order, are kept when the export dialog opens again
+ * (docs/ТЗ.md, 4.11).
+ */
+export type PreferenceTable = (typeof PREFERENCE_TABLES)[number] | `export:${string}`;
+
+export const exportPreference = (report: string): PreferenceTable => `export:${report}`;
 
 export type TableSettings = {
   hiddenColumns: string[];
   /** Widths in pixels the user dragged columns to; columns left out keep their default width. */
   columnSizes: Record<string, number>;
+  /** The order the user put the columns in; columns left out keep theirs, after these. */
+  columnOrder: string[];
 };
 
 // Each setting is read on its own, so a damaged one does not take the other with it.
 const hiddenColumnsSchema = z.array(z.string());
 const columnSizesSchema = z.record(z.string(), z.number().int().positive());
+const columnOrderSchema = z.array(z.string());
 
 /** The settings of one table; anything unreadable stored there counts as not set. */
 export async function readTableSettings(
@@ -33,9 +43,11 @@ export async function readTableSettings(
 
   const hidden = hiddenColumnsSchema.safeParse(settings.hiddenColumns);
   const sizes = columnSizesSchema.safeParse(settings.columnSizes);
+  const order = columnOrderSchema.safeParse(settings.columnOrder);
   return {
     hiddenColumns: hidden.success ? hidden.data : [],
     columnSizes: sizes.success ? sizes.data : {},
+    columnOrder: order.success ? order.data : [],
   };
 }
 
