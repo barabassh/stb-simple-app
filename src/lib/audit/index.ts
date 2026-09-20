@@ -112,20 +112,34 @@ export function readAuditChanges(value: unknown): AuditChange[] {
  * that was rolled back, nor a change be kept without its entry.
  */
 export async function logAudit(client: Prisma.TransactionClient, entry: AuditEntry): Promise<void> {
+  await client.auditLog.create({ data: entryData(entry) });
+}
+
+/**
+ * Entries of one change of many records, e.g. the reports of one imported file: written in one
+ * statement, because an import of two thousand rows would otherwise wait for two thousand of them.
+ */
+export async function logAuditMany(
+  client: Prisma.TransactionClient,
+  entries: AuditEntry[],
+): Promise<void> {
+  if (entries.length === 0) return;
+  await client.auditLog.createMany({ data: entries.map(entryData) });
+}
+
+function entryData(entry: AuditEntry): Prisma.AuditLogCreateManyInput {
   // Changes built by hand bypass diffEntity, so the excluded fields are dropped here as well.
   const changes = entry.changes?.filter(({ field }) => !excludedFields.has(field));
 
-  await client.auditLog.create({
-    data: {
-      actorId: entry.actor.id,
-      actorLogin: entry.actor.login,
-      action: entry.action,
-      entity: entry.entity,
-      entityId: entry.entityId ?? null,
-      summary: entry.summary,
-      ...(changes && changes.length > 0 ? { changes } : {}),
-      ip: entry.ip ?? null,
-      userAgent: entry.userAgent ?? null,
-    },
-  });
+  return {
+    actorId: entry.actor.id,
+    actorLogin: entry.actor.login,
+    action: entry.action,
+    entity: entry.entity,
+    entityId: entry.entityId ?? null,
+    summary: entry.summary,
+    ...(changes && changes.length > 0 ? { changes } : {}),
+    ip: entry.ip ?? null,
+    userAgent: entry.userAgent ?? null,
+  };
 }

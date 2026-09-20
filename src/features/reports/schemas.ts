@@ -90,6 +90,15 @@ export const workerReportSchema = z
   .object({ userId: z.cuid(message("workerRequired")), ...reportShape })
   .superRefine(checkTime, checkTimeOptions);
 
+/**
+ * A row of an imported file (docs/ТЗ.md, 7.13): the same rules as the form's, without the project,
+ * which the row names instead of choosing by its identifier.
+ */
+export const importedReportSchema = z
+  .object(reportShape)
+  .omit({ projectId: true })
+  .superRefine(checkTime, checkTimeOptions);
+
 /** The reason an approval is withdrawn for, shown to the worker (docs/ТЗ.md, 7.7). */
 export const unapproveReportSchema = z.object({
   reason: z.string().trim().min(3, message("reasonLength")).max(500, message("reasonLength")),
@@ -100,3 +109,5 @@ export type OwnReportValues = z.output<typeof ownReportSchema>;
 export type WorkerReportInput = z.input<typeof workerReportSchema>;
 export type WorkerReportValues = z.output<typeof workerReportSchema>;
 export type UnapproveReportInput = z.input<typeof unapproveReportSchema>;
+export type ImportedReportInput = z.input<typeof importedReportSchema>;
+export type ImportedReportValues = z.output<typeof importedReportSchema>;

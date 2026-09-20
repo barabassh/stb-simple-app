@@ -39,7 +39,7 @@ export async function createUser(user: NewUser = {}) {
       ...user,
       passwordHash: await passwordHash,
     },
-    select: { id: true, login: true, fullName: true, role: true },
+    select: { id: true, login: true, fullName: true, nickname: true, role: true },
   });
 }
 

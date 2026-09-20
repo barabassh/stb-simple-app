@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
@@ -32,19 +31,12 @@ import {
   type OwnReportValues,
 } from "./schemas";
 import { formatTime } from "./time";
+import { isOverlap, lockProjects, revalidateReports, type LockedProject } from "./write";
 
 // Every write into a project runs in one transaction, in this order (docs/АРХИТЕКТУРА.md, 3.10):
 // the project row FOR SHARE while it is in progress, the report with a condition on its status,
 // the audit entry. Overlapping reports are not looked for before the write: the exclusion
 // constraint of the database rejects them, and only then is the report in the way looked up.
-
-const REPORTS_PATH = "/reports";
-
-/** The registry, the report pages and the "Отчёты" tab with the totals of a project card. */
-function revalidateReports() {
-  revalidatePath(REPORTS_PATH, "layout");
-  revalidatePath("/projects/[id]", "page");
-}
 
 const notFound: ActionFailure = { ok: false, error: "reports.errors.notFound" };
 const closed: ActionFailure = { ok: false, error: "projects.errors.closed" };
@@ -71,28 +63,6 @@ function validationFailure(error: z.ZodError): ActionFailure {
 async function auditContext() {
   const [t, request] = await Promise.all([getTranslations(), getClientInfo()]);
   return { t, request };
-}
-
-type LockedProject = { id: string; number: string; name: string; startDate: string };
-
-/**
- * Takes the rows of the projects FOR SHARE while they are in progress. Closing a project updates
- * its row, so it waits for this transaction and then counts the report written here; a project
- * closed first is missing from the result. The only SQL the report actions write themselves:
- * Prisma does not lock rows.
- */
-async function lockProjects(
-  tx: Prisma.TransactionClient,
-  ids: string[],
-): Promise<Map<string, LockedProject>> {
-  const rows = await tx.$queryRaw<LockedProject[]>`
-    SELECT id, number, name, to_char("startDate", 'YYYY-MM-DD') AS "startDate"
-    FROM "Project"
-    WHERE id IN (${Prisma.join([...new Set(ids)])})
-      AND status = 'IN_PROGRESS' AND "deletedAt" IS NULL
-    ORDER BY id
-    FOR SHARE`;
-  return new Map(rows.map((row) => [row.id, row]));
 }
 
 const calendarDate = (isoDate: string) => formatCalendarDate(new Date(`${isoDate}T00:00:00Z`));
@@ -221,15 +191,6 @@ async function storedRecord(
     lunchMinutes: report.lunchMinutes,
     mileageKm: report.mileageKm,
   };
-}
-
-/** Only one exclusion constraint guards reports: WorkReport_no_overlap. */
-function isOverlap(error: unknown): boolean {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  const cause = (
-    error.meta?.driverAdapterError as { cause?: { originalCode?: string } } | undefined
-  )?.cause;
-  return cause?.originalCode === "23P01";
 }
 
 type ReportOwner = { userId: string } | { reportId: string };

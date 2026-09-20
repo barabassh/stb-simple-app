@@ -1,4 +1,4 @@
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, UploadIcon } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { hideableReportColumns, reportAccess, reportColumns } from "@/features/reports/columns";
 import { ReportsTable } from "@/features/reports/components/reports-table";
 import { reportsExport } from "@/features/reports/export";
+import { reportsImport } from "@/features/reports/import";
 import { ReportsToolbar } from "@/features/reports/components/reports-toolbar";
 import {
   DEFAULT_REPORT_STATUS,
@@ -66,6 +67,14 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         <div className="flex flex-wrap gap-2">
           {can(viewer, reportsExport.permission) && (
             <ExportButtons report={reportsExport} searchParams={resolvedSearchParams} />
+          )}
+          {can(viewer, reportsImport.permission) && (
+            <Button variant="outline" asChild>
+              <Link href="/reports/import">
+                <UploadIcon aria-hidden />
+                {t("reports.import.button")}
+              </Link>
+            </Button>
           )}
           {canCreate && (
             <Button asChild>
