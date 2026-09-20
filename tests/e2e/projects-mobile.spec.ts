@@ -1,15 +1,4 @@
-import type { Page } from "@playwright/test";
-
-import { expect, messages, signIn, test, waitForHydration } from "./fixtures";
-
-async function expectNoPageScroll(page: Page): Promise<void> {
-  const { scrollWidth, innerWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    innerWidth: window.innerWidth,
-  }));
-  expect(innerWidth).toBe(360);
-  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
-}
+import { expect, expectNoPageScroll, messages, signIn, test, waitForHydration } from "./fixtures";
 
 test("on a phone the projects registry and the project form fit the screen", async ({
   page,

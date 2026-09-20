@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { formatMoney } from "@/lib/format";
 
 import {
+  chooseRecord,
   expect,
   messages,
   signIn,
@@ -22,14 +23,6 @@ function detail(page: Page, label: string) {
     .locator("dt")
     .getByText(label, { exact: true })
     .locator("xpath=following-sibling::dd[1]");
-}
-
-async function chooseRecord(page: Page, field: string, search: string, name: string) {
-  const picker = page.getByRole("combobox", { name: field, exact: true });
-  await waitForHydration(picker);
-  await picker.click();
-  await page.getByRole("searchbox", { name: search }).fill(name);
-  await page.getByRole("option", { name, exact: true }).click();
 }
 
 async function chooseOption(page: Page, field: string, option: string) {

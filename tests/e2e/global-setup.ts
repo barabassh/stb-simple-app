@@ -25,6 +25,11 @@ const PAGES = [
   "/projects/{project}",
   "/projects/{project}/edit",
   "/projects/{closed}/edit",
+  "/reports",
+  "/reports/new",
+  "/reports/import",
+  "/reports/{report}",
+  "/reports/{report}/edit",
   "/profile",
   "/settings",
   "/settings/company/history",
@@ -41,7 +46,15 @@ function cuid(): string {
 async function insertWarmUpData(databaseUrl: string) {
   const userId = cuid();
   const token = randomBytes(32).toString("base64url");
-  const ids = { id: userId, customer: cuid(), contractor: cuid(), project: cuid(), closed: cuid() };
+  const workerId = cuid();
+  const ids = {
+    id: userId,
+    customer: cuid(),
+    contractor: cuid(),
+    project: cuid(),
+    closed: cuid(),
+    report: cuid(),
+  };
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
@@ -75,6 +88,18 @@ async function insertWarmUpData(databaseUrl: string) {
         [id, number, ids.customer, status],
       );
     }
+    // The pages of a report open with a report of a worker, as only a worker may have one.
+    await client.query(
+      `INSERT INTO "User" (id, login, "fullName", nickname, role, "passwordHash", "updatedAt")
+       VALUES ($1, 'e2e.warmup.worker', 'Warm-up worker', 'e2e.warmup.worker', 'EMPLOYEE', '-', now())`,
+      [workerId],
+    );
+    await client.query(
+      `INSERT INTO "WorkReport" (id, "userId", "projectId", "workDate", "workDescription",
+         "startMinute", "endMinute", "updatedAt")
+       VALUES ($1, $2, $3, '2026-09-01', 'Warm-up', 480, 720, now())`,
+      [ids.report, workerId, ids.project],
+    );
   } finally {
     await client.end();
   }

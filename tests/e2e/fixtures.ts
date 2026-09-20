@@ -21,6 +21,21 @@ export function text(message: string, values: Record<string, string | number>): 
   return message.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name]));
 }
 
+/**
+ * Renders a message with plural forms by taking one of its branches ("one", "few", "other", "=1"):
+ * the branch's text replaces the whole `{count, plural, …}` block, with `#` in place of the number.
+ * Enough to find such a message on the page; next-intl formats it in the application itself.
+ */
+export function plural(message: string, branch: string, count: number): string {
+  const opened = message.indexOf("{");
+  const closed = message.lastIndexOf("}");
+  const block = message.slice(opened, closed + 1);
+  const from = block.indexOf(`${branch} {`) + branch.length + 2;
+  const body = block.slice(from, block.indexOf("}", from));
+
+  return message.slice(0, opened) + body.replaceAll("#", String(count)) + message.slice(closed + 1);
+}
+
 /** Tests run in parallel on one database, so every login is unique. */
 export function uniqueLogin(prefix: string): string {
   return `e2e.${prefix}.${randomBytes(4).toString("hex")}`;
@@ -61,6 +76,30 @@ export async function waitForHydration(locator: Locator): Promise<void> {
       }),
     )
     .toBe(true);
+}
+
+/** Opens a picker of records and takes the one named, as the forms and the filter bars offer it. */
+export async function chooseRecord(
+  page: Page,
+  field: string,
+  search: string,
+  name: string,
+): Promise<void> {
+  const picker = page.getByRole("combobox", { name: field, exact: true });
+  await waitForHydration(picker);
+  await picker.click();
+  await page.getByRole("searchbox", { name: search }).fill(name);
+  await page.getByRole("option", { name, exact: true }).click();
+}
+
+/** The phone layout scrolls only inside its blocks, never sideways (docs/ТЗ.md, 3.2). */
+export async function expectNoPageScroll(page: Page): Promise<void> {
+  const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+  }));
+  expect(innerWidth).toBe(360);
+  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
 }
 
 export async function signIn(page: Page, { login, password }: Credentials): Promise<void> {
@@ -119,12 +158,30 @@ type NewProject = {
   budgetAmount?: string;
 };
 
+type NewReport = {
+  userId: string;
+  projectId: string;
+  /** The worker's organisation; omitted for an employee of the company itself. */
+  contractorId?: string;
+  /** `yyyy-MM-dd`, not before the project starts and not in the future. */
+  workDate?: string;
+  /** Minutes from midnight; reports of one worker on one day must not overlap. */
+  startMinute?: number;
+  endMinute?: number;
+  mileageKm?: number;
+  status?: "UNAPPROVED" | "APPROVED";
+  workDescription?: string;
+};
+
+export type TestReport = { id: string; workDescription: string };
+
 type DataFixtures = {
   createUser: (user?: NewUser) => Promise<TestUser>;
   createCustomer: (customer?: NewReferenceRecord) => Promise<TestRecord>;
   createContractor: (contractor?: NewReferenceRecord) => Promise<TestRecord>;
   /** Its number is not of the `ГГГГ-NNN` shape, so it never changes the number a form suggests. */
   createProject: (project: NewProject) => Promise<TestProject>;
+  createReport: (report: NewReport) => Promise<TestReport>;
 };
 
 // Users are inserted with plain SQL: Playwright loads tests as CommonJS, and the generated Prisma
@@ -196,6 +253,33 @@ export const test = base.extend<DataFixtures, { database: Pool; passwordHash: st
         ],
       );
       return { id, number, name };
+    });
+  },
+  createReport: async ({ database }, provide) => {
+    await provide(async ({ userId, projectId, contractorId, ...report }) => {
+      const id = cuid();
+      const workDescription = report.workDescription ?? `E2E Werk ${uniqueTag()}`;
+      const status = report.status ?? "UNAPPROVED";
+      await database.query(
+        `INSERT INTO "WorkReport" (id, "userId", "contractorId", "projectId", "workDate",
+           "workDescription", "startMinute", "endMinute", "mileageKm", status, "approvedAt",
+           "createdById", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text::"WorkReportStatus",
+           CASE WHEN $10::text = 'APPROVED' THEN now() END, $2, now())`,
+        [
+          id,
+          userId,
+          contractorId ?? null,
+          projectId,
+          report.workDate ?? "2026-09-02",
+          workDescription,
+          report.startMinute ?? 8 * 60,
+          report.endMinute ?? 12 * 60,
+          report.mileageKm ?? 0,
+          status,
+        ],
+      );
+      return { id, workDescription };
     });
   },
 });

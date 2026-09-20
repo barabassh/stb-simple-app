@@ -6,7 +6,11 @@ import { testDatabaseUrl } from "./tests/support/test-database";
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 // Checks of the phone layout, which run on the 360 px profile alone.
-const MOBILE_ONLY = ["settings-mobile.spec.ts", "projects-mobile.spec.ts"];
+const MOBILE_ONLY = [
+  "settings-mobile.spec.ts",
+  "projects-mobile.spec.ts",
+  "reports-mobile.spec.ts",
+];
 
 export default defineConfig({
   testDir: "./tests/e2e",

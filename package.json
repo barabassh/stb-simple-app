@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --configLoader runner",
     "test:e2e": "playwright test",
+    "test:prod": "tsx tests/prod/budget-leak.ts",
     "test:db:init": "tsx tests/support/init-test-databases.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
